@@ -9,8 +9,68 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/file.h>
+
+
+struct msgbuf
+{
+    long mtype;
+    char mtext[1];
+};
+
+union Semun {
+    int              val;    /* Value for SETVAL */
+    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+    unsigned short  *array;  /* Array for GETALL, SETALL */
+    struct seminfo  *__buf;  /* Buffer for IPC_INFO
+                                (Linux-specific) */
+};
+
+void down(int sem)
+{
+    struct sembuf p_op;
+
+    p_op.sem_num = 0;
+    p_op.sem_op = -1;
+    p_op.sem_flg = !IPC_NOWAIT;
+
+    if (semop(sem, &p_op, 1) == -1)
+    {
+        perror("Error in down()");
+        exit(-1);
+    }
+}
+
+void up(int sem)
+{
+    struct sembuf v_op;
+
+    v_op.sem_num = 0;
+    v_op.sem_op = 1;
+    v_op.sem_flg = !IPC_NOWAIT;
+    
+    if (semop(sem, &v_op, 1) == -1)
+    {
+        perror("Error in up()");
+        exit(-1);
+    }
+}
+
+int add=0;										/* place to add next element */
+int num=50;										/* number elements in buffer */
+
+
 
 int main() {
+    union Semun semun;
+    key_t sem_key_id;
+    sem_key_id = ftok("sem_key", 3);
+    int m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
+    if (m) {
+        perror("Error in create sem");
+        exit(-1);
+    }
+    
     key_t buffer_key_id, buffer_size_key_id;
     int bufferId, bufferSizeId;
     buffer_key_id = ftok("buffer_memory_key", 1);
@@ -43,5 +103,59 @@ int main() {
             exit(-1);
         }
         *shmaddr = bufferSize;
+
+        semun.val = 1; /* initial value of the semaphore, Binary semaphore */
+        if (semctl(m, 0, SETVAL, semun) == -1) {
+            perror("Error in semctl, this");
+            exit(-1);
+        }
     }
+
+    bufferId = shmget(buffer_key_id, bufferSize * sizeof(int), IPC_CREAT | 0666);
+    if (bufferId == -1) {
+        perror("Error in create");
+        exit(-1);
+    }
+    
+    int *buffer = shmat(bufferId, (void *)0, 0);
+
+    key_t message_key_id;
+    message_key_id = ftok("message_queue_key", 4);
+    int mqId = msgget(message_key_id, 0666 | IPC_CREAT);
+    if (mqId == -1) {
+        perror("Error in create");
+        exit(-1);
+    }
+    struct msgbuf message;
+    int rec_val, send_val;
+    down(m);
+    
+    // to empty message buffer
+    rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
+    
+    if (num > bufferSize) exit(1);	/* overflow */
+    if(num == bufferSize) {
+        up(m);
+        rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
+        if (rec_val == -1)
+            perror("Error in receive");
+
+        down(m);
+    }
+
+    buffer[add] = 5;
+    printf("produced item %d at index %d\n", 5, add);
+
+    add = (add+1) % bufferSize;
+    num++;
+    if(num ==1){
+        message.mtype = 20;
+        send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
+        if (send_val == -1)
+            perror("Error in send");
+    }
+
+    up(m);
+
+
 }

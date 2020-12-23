@@ -56,10 +56,6 @@ void up(int sem)
     }
 }
 
-int add=0;										/* place to add next element */
-int num=50;										/* number elements in buffer */
-
-
 
 int main() {
     union Semun semun;
@@ -71,39 +67,53 @@ int main() {
         exit(-1);
     }
     
-    key_t buffer_key_id, buffer_size_key_id;
-    int bufferId, bufferSizeId;
+    key_t buffer_key_id, buffer_data_key_id;
+    int bufferId, bufferDataId;
     buffer_key_id = ftok("buffer_memory_key", 1);
-    buffer_size_key_id = ftok("buffer_size_key", 2);
+    buffer_data_key_id = ftok("buffer_data_key", 2);
     
     int bufferSize;
 
-    bufferSizeId = shmget(buffer_size_key_id, sizeof(int), IPC_EXCL | IPC_CREAT | 0666);
-    if(bufferSizeId == -1){
+    bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_EXCL | IPC_CREAT | 0666);
+    
+    /*
+        bufferData[0] ---> buffer size
+        bufferData[1] ---> number of items
+        bufferData[2] ---> address to add
+        bufferData[3] ---> address to remove
+    */
+    int *bufferData;
+    
+    if(bufferDataId == -1){
         if (EEXIST == errno) {
-            bufferSizeId = shmget(buffer_size_key_id, sizeof(int), IPC_CREAT | 0666);
-            int *shmaddr = shmat(bufferSizeId, (void *)0, SHM_RDONLY);
-            if (shmaddr == (int *)-1)
+            bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_CREAT | 0666);
+            bufferData = shmat(bufferDataId, (void *)0, 0);
+            if (bufferData == (int *)-1)
             {
                 perror("Error in attach in reader");
                 exit(-1);
             }
 
-            bufferSize = *shmaddr;
+            bufferSize = bufferData[0];
+
         } else {
             perror("msgget() failed");
         }
     } else {
         printf("please enter buffer size: ");
         scanf("%d", &bufferSize);
-        int *shmaddr = shmat(bufferSizeId, (void *)0, 0);
-        if (shmaddr == (int *)-1)
+        bufferData = shmat(bufferDataId, (void *)0, 0);
+        if (bufferData == (int *)-1)
         {
             perror("Error in attach in writer");
             exit(-1);
         }
-        *shmaddr = bufferSize;
 
+        bufferData[0] = bufferSize;
+        bufferData[1] = 0;
+        bufferData[2] = 0;
+        bufferData[3] = 0;
+    
         semun.val = 1; /* initial value of the semaphore, Binary semaphore */
         if (semctl(m, 0, SETVAL, semun) == -1) {
             perror("Error in semctl, this");
@@ -133,8 +143,8 @@ int main() {
     // to empty message buffer
     rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
     
-    if (num > bufferSize) exit(1);	/* overflow */
-    if(num == bufferSize) {
+    if (bufferData[1] > bufferSize) exit(1);	/* overflow */
+    if(bufferData[1] == bufferSize) {
         up(m);
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
         if (rec_val == -1)
@@ -143,12 +153,12 @@ int main() {
         down(m);
     }
 
-    buffer[add] = 5;
-    printf("produced item %d at index %d\n", 5, add);
+    buffer[bufferData[2]] = bufferData[2];
+    printf("produced item %d at index %d\n", 5, bufferData[2]);
 
-    add = (add+1) % bufferSize;
-    num++;
-    if(num ==1){
+    bufferData[2] = (bufferData[2]+1) % bufferSize;
+    bufferData[1]++;
+    if(bufferData[1] == 1){
         message.mtype = 20;
         send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
         if (send_val == -1)

@@ -106,6 +106,12 @@ int main() {
         exit(-1);
     }
 
+    bufferId = shmget(buffer_key_id, bufferSize * sizeof(int), IPC_CREAT | 0666);
+    if (bufferId == -1) {
+        perror("Error in create");
+        exit(-1);
+    }
+    
     int *buffer = shmat(bufferId, (void *)0, 0);
 
     key_t message_key_id;
@@ -122,7 +128,7 @@ int main() {
     // to empty message buffer
     rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, IPC_NOWAIT);
     ////////////////////////////////////////////////////////
-    if (bufferData[3] < 0) exit(1);	/* overflow */
+    if (bufferData[1] < 0) exit(1);	/* overflow */
     if(bufferData[1] == 0) {
         down(m);
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, !IPC_NOWAIT);

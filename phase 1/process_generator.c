@@ -15,7 +15,7 @@ struct Process{
     int priority; 
 }; 
 
-struct Process ** readProcesses(){
+struct Process ** readProcesses(int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
         printf("not able to read processes"); 
@@ -36,6 +36,7 @@ struct Process ** readProcesses(){
         // loop through the string to extract all other tokens
        
     }
+    count = i; 
     fclose(file); 
     return processes; 
 }
@@ -59,28 +60,71 @@ int readAlgoNum()
         return selected_algorithm_Number;
     }
 }
+void writeInClk(int shmid)
+{
+    int *shmaddr = (int *) shmat(shmid, (void *)0, 0);
+    if ((long)shmaddr == -1)
+    {
+        perror("Error in attach in writer");
+        exit(-1);
+    }
+   // printf("\nWriter: Shared memory attached at address %x\n", *shmaddr);
+    (*shmaddr) = 0;
+    //printf("\nWriter Detaching...");
+    shmdt(shmaddr);
+}
+
+void initializeClk(){
+    int shmid = shmget(SHKEY, 4, IPC_CREAT | 0666);
+    if(shmid == -1){
+        printf("Erroer creating shared memory for clock");
+        exit(-1);
+    }
+    writeInClk(shmid);
+}
+
+void startHPF_schedular(struct Process ** processes,int P_N){
+    // 5. Create a data structure for processes and provide it with its parameters.
+    // 6. Send the information to the scheduler at the appropriate time.
+    // 7. Clear clock resources
+    // To get time use this
+    while(1){
+    int x = getClk();
+    printf("current time is %d\n", x);
+    sleep(1);
+    }
+}
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
-    struct Process ** processes = readProcesses(); 
+    int P_N = 0; 
+    struct Process ** processes = readProcesses(&P_N); 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
-    int selected_algorithm = readAlgoNum();
+    int selAlgo = readAlgoNum();
     // 3. Initiate and create the scheduler and clock processes.
+    initializeClk();
     // 4. Use this function after creating the clock process to initialize clock
     initClk();
-    // To get time use this
-    int x = getClk();
-    printf("current time is %d\n", x);
     // TODO Generation Main Loop
-    // 5. Create a data structure for processes and provide it with its parameters.
-    // 6. Send the information to the scheduler at the appropriate time.
-    // 7. Clear clock resources
+    switch (selAlgo)
+    {
+    case SRTN: 
+        startSRTN_schedular(processes,P_N); 
+        break;
+    case HPF: 
+        startHPF_schedular(processes,P_N); 
+        break;
+    default:
+        startRR_schedular(processes,P_N); 
+        break;
+    }
     destroyClk(true);
 }
 
 void clearResources(int signum)
 {
     //TODO Clears all resources in case of interruption
+    
 }

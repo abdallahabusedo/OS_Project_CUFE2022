@@ -154,7 +154,7 @@ int main() {
     }
 
     buffer[bufferData[2]] = bufferData[2];
-    printf("produced item %d at index %d\n", 5, bufferData[2]);
+    printf("produced item %d at index %d\n", bufferData[2], bufferData[2]);
 
     bufferData[2] = (bufferData[2]+1) % bufferSize;
     bufferData[1]++;

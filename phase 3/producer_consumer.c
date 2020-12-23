@@ -18,7 +18,7 @@ pthread_cond_t c_prod=PTHREAD_COND_INITIALIZER; /* producer waits on this cond v
 void *producer(void *param);
 void *consumer(void *param);
 
-main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
 	pthread_t tid1, tid2;		/* thread identifiers */
 	int i;

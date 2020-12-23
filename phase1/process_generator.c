@@ -1,28 +1,23 @@
-#include "headers.h"
+
 #include <stdio.h>
 #include <string.h>
+#include "headers.h"
+#include "priority_queue.h"
 #define HPF 1
 #define SRTN 2
 #define RR 3
 
 void clearResources(int);
-const char* PROCESSES_FILE_NAME = "phase 1/processes.txt";
+const char* PROCESSES_FILE_NAME = "phase1/processes.txt";
+struct Process* processes[__INT8_MAX__];
 
-struct Process{
-    int id; 
-    int arrive; 
-    int runtime; 
-    int priority; 
-}; 
-
-struct Process ** readProcesses(int * count){
+void readProcesses(struct Process ** processes ,int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
         printf("not able to read processes"); 
         exit(-1);                                   // what should we do here ? 
     }
     char * line; 
-    struct Process* processes[__INT8_MAX__];
     int i = 0; 
     size_t buf_size = 0; 
     while(getline(&line,&buf_size,file) > 0){
@@ -31,14 +26,14 @@ struct Process ** readProcesses(int * count){
         processes[i]->id = line[0]-'0'; 
         processes[i]->arrive = line[4]-'0'; 
         processes[i]->runtime = line[8]-'0'; 
-        processes[i]->priority = line[12]-'0'; 
+        processes[i]->priority = line[12]-'0';
+        processes[i]->remain = processes[i]->runtime; 
         i++; 
         // loop through the string to extract all other tokens
        
     }
-    count = i; 
+    *count = i; 
     fclose(file); 
-    return processes; 
 }
 
 
@@ -94,20 +89,87 @@ void startHPF_schedular(struct Process ** processes,int P_N){
     sleep(1);
     }
 }
+
+int Next = 0; 
+void checkToInsertSRTN(struct Process ** processes,int N, int clk){
+    if(Next >= N) return; 
+    if(processes[Next] != NULL && processes[Next]->arrive == clk){
+        proirity_enqueue(processes[Next],processes[Next]->remain);
+        Next++; 
+    }
+}
+
+
+void checkToInsertHPF(struct Process ** processes,int N, int clk){
+    if(Next >= N) return; 
+    if(processes[Next] != NULL && processes[Next]->arrive == clk){
+        proirity_enqueue(processes[Next],processes[Next]->priority);
+        Next++; 
+    }
+}
+
+
+void startSRTN_schedular(struct Process ** processes,int P_N){
+
+    struct Process ** queue = get_Q(); 
+    // 5. Create a data structure for processes and provide it with its parameters.
+    // 6. Send the information to the scheduler at the appropriate time.
+    // 7. Clear clock resources
+    // To get time use this
+
+    while(1){
+        int x = getClk();
+        checkToInsertSRTN(processes,P_N,x); 
+        printf("at time %d queue size %d \n",x, getQueueSize());
+        sleep(1);
+    }
+}
+void startRR_schedular(struct Process ** processes,int P_N){
+
+    struct Process ** queue = get_Q(); 
+    // 5. Create a data structure for processes and provide it with its parameters.
+    // 6. Send the information to the scheduler at the appropriate time.
+    // 7. Clear clock resources
+    // To get time use this
+
+    // while(1){
+    //     int x = getClk();
+    //     checkToInsertSRTN(x); 
+    //     printf("queue size%d",getQueueSize());
+    //     sleep(1);
+    // }
+}
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
     int P_N = 0; 
-    struct Process ** processes = readProcesses(&P_N); 
+    readProcesses(processes,&P_N); 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     int selAlgo = readAlgoNum();
     // 3. Initiate and create the scheduler and clock processes.
-    initializeClk();
+    int pid, stat_loc;
+    pid = fork();
+    if (pid == -1)
+        perror("error in fork");
+    else if (pid == 0)
+    { 
+        printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
+        execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk", "clk", NULL);
+    }
+    // pid = fork();
+    // if (pid == -1)
+    //     perror("error in fork");
+    // else if (pid == 0)
+    // { 
+    //     printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
+    //     execl("clk", "clk", NULL);
+    // }
     // 4. Use this function after creating the clock process to initialize clock
     initClk();
     // TODO Generation Main Loop
+    
     switch (selAlgo)
     {
     case SRTN: 

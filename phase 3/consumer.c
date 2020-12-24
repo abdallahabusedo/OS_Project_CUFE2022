@@ -117,33 +117,37 @@ int main() {
     }
     struct msgbuf message;
     int rec_val, send_val;
-    up(m);
-    
-    // to empty message buffer
-    rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, IPC_NOWAIT);
-    ////////////////////////////////////////////////////////
-    if (bufferData[3] < 0) exit(1);	/* overflow */
-    if(bufferData[1] == 0) {
-        down(m);
-        rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, !IPC_NOWAIT);
-        if (rec_val == -1)
-            perror("Error in receive");
 
+    while(1){
+
+        
         up(m);
+        
+        // to empty message buffer
+        rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, IPC_NOWAIT);
+        ////////////////////////////////////////////////////////
+        if (bufferData[3] < 0) exit(1);	/* overflow */
+        if(bufferData[1] == 0) {
+            down(m);
+            rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, !IPC_NOWAIT);
+            if (rec_val == -1)
+                perror("Error in receive");
+
+            up(m);
+        }
+
+        consumer = buffer[bufferData[3]];
+        printf("consumed item %d at index %d\n", buffer[bufferData[3]], bufferData[3]);
+
+        bufferData[3] = (bufferData[3]+1) % bufferSize;
+        bufferData[1]--;
+        if(bufferData[1] == bufferSize-1){
+            message.mtype = 10;
+            send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
+            if (send_val == -1)
+                perror("Error in send");
+        }
+
+        down(m);
     }
-
-    consumer = buffer[bufferData[3]];
-    printf("consumed item %d at index %d\n", buffer[bufferData[3]], bufferData[3]);
-
-    bufferData[3] = (bufferData[3]+1) % bufferSize;
-    bufferData[1]--;
-    if(bufferData[1] == bufferSize-1){
-        message.mtype = 10;
-        send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
-        if (send_val == -1)
-            perror("Error in send");
-    }
-
-    down(m);
-
 }

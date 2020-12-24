@@ -138,34 +138,37 @@ int main() {
     }
     struct msgbuf message;
     int rec_val, send_val;
-    down(m);
-    
-    // to empty message buffer
-    rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
-    
-    if (bufferData[1] > bufferSize) exit(1);	/* overflow */
-    if(bufferData[1] == bufferSize) {
-        up(m);
-        rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
-        if (rec_val == -1)
-            perror("Error in receive");
 
+    for (int i=1; i<=20; i++) {
         down(m);
+        
+        // to empty message buffer
+        rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
+        
+        if (bufferData[1] > bufferSize) exit(1);	/* overflow */
+        if(bufferData[1] == bufferSize) {
+            up(m);
+            rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
+            if (rec_val == -1)
+                perror("Error in receive");
+
+            down(m);
+        }
+
+        buffer[bufferData[2]] = i;
+        printf("produced item %d at index %d\n", i, bufferData[2]);
+
+        bufferData[2] = (bufferData[2]+1) % bufferSize;
+        bufferData[1]++;
+        if(bufferData[1] == 1){
+            message.mtype = 20;
+            send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
+            if (send_val == -1)
+                perror("Error in send");
+        }
+
+        up(m);
     }
-
-    buffer[bufferData[2]] = bufferData[2];
-    printf("produced item %d at index %d\n", bufferData[2], bufferData[2]);
-
-    bufferData[2] = (bufferData[2]+1) % bufferSize;
-    bufferData[1]++;
-    if(bufferData[1] == 1){
-        message.mtype = 20;
-        send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
-        if (send_val == -1)
-            perror("Error in send");
-    }
-
-    up(m);
 
 
 }

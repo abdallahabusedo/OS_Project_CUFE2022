@@ -1,32 +1,36 @@
 #include "headers.h"
-#include "priority_queue.h"
+#include "min_heap.h"
 
-struct Process ** queue;
-int size = 0;
-char selAlgo; 
-void insert(struct Process p){
-    struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
-    *pp = p ; 
-    enqueue(queue,pp,&size,selAlgo);
-}
 int main(){
     
-    queue = (struct Process **) malloc(sizeof(struct Process*));
-    selAlgo = RR; 
-    struct Process p; 
-    p.arrive = 1; 
-    p.id = 1; 
-    p.priority =1 ; 
-    p.remain = 3; 
-    p.runtime = 3; 
-    insert(p); 
-    p.arrive = 3; 
-    insert(p); 
-    p.arrive = 2; 
-    insert(p); 
-    for (int i = 0; i < size; i++)
-    {
-        printf("process arrive %d \n\n",dequeue(queue,&size,selAlgo)->arrive);
+    struct Process p1, p2, p3; 
+    p1.arrive = 1; 
+    p1.id = 1; 
+    p1.priority = 5; 
+    p1.remain = 6; 
+    p1.runtime = 2; 
+    
+    p2.arrive = 2; 
+    p2.id = 1; 
+    p2.priority =7 ; 
+    p2.remain = 2; 
+    p2.runtime = 3;
+
+    p3.arrive = 3; 
+    p3.id = 1; 
+    p3.priority =1 ; 
+    p3.remain = 1; 
+    p3.runtime = 3;
+
+    Heap* priorityQueue = CreateHeap(SRTN);
+    
+    enqueue(priorityQueue, p1);
+    enqueue(priorityQueue, p2);
+    enqueue(priorityQueue, p3);
+
+    for (int i = 0; i < 3; i++) {
+        printf("process arrive %d \n\n", dequeue(priorityQueue).arrive);
+
     }
     
 

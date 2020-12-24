@@ -1,3 +1,4 @@
+#pragma once 
 #include <stdio.h>      //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -10,12 +11,21 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
+
 
 typedef short bool;
 #define true 1
 #define false 1
-
 #define SHKEY 300
+
+#define HPF '1'
+#define SRTN '2'
+#define RR '3'
+#define G_MSG_TYPE 7
+#define G_MSG_KEY 77
+#define P_MSG_TYPE 8
+#define P_MSG_KEY 88
 
 
 ///==============================
@@ -29,6 +39,21 @@ int getClk()
 {
     return *shmaddr;
 }
+
+struct Process{
+    int id; 
+    int arrive; 
+    int runtime; 
+    int priority; 
+    int remain;
+}; 
+
+struct msgbuff
+{
+    long mtype;
+    struct Process p; 
+};
+
 
 
 /*

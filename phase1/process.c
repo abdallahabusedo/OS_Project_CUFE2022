@@ -5,6 +5,11 @@ int remainingtime;
 
 void set_remain_for_RR(int remain)
 {
+    
+}
+int main(int agrc, char * argv[])
+{
+    initClk();
     int shmid, pid;
     shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
     int *shmaddr = (int*) shmat(shmid, (void *)0, 0);
@@ -12,36 +17,16 @@ void set_remain_for_RR(int remain)
     {
         perror("Error in attach in writer");
         exit(-1);
-    }
-    else
-    {
-        *shmaddr = remain; 
-    } 
-    shmdt(shmaddr);
-}
-int main(int agrc, char * argv[])
-{
-    initClk();
+    }   
+
     printf("process started at time %d ***********************\n",getClk());
-    remainingtime = atoi(argv[1]); 
-    //TODO it needs to get the remaining time from somewhere
-    //remainingtime = ??;
-    if(agrc > 2){
-       int remain = atoi(argv[2]); 
-       if(remain < remainingtime){
-           remainingtime = remainingtime; 
-       }
-       remain = remain - remainingtime; 
-        set_remain_for_RR(remain);
-    }
-    printf("process started at time %d ***********************\n",getClk());
-    while (remainingtime > 0)
+    while (*shmaddr > 0)
     {
-        remainingtime -=1;
         sleep(1); 
+        *shmaddr -=1;
     }
     printf("process ended at time %d  \n\n",getClk());
-    destroyClk(false);
-    kill(getppid(),SIGCHLD); 
+    shmdt(shmaddr);
+    destroyClk(false); 
     return 0;
 }

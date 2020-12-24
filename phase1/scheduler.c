@@ -8,7 +8,8 @@ char selAlgo;
 
 
 void forkProcess();
-void switchProcess();
+int * initiate_shared_memory(int shmid);
+void save_state();
 
 void insert(struct Process p){
     struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
@@ -19,13 +20,12 @@ typedef struct RunningState running;
 struct RunningState{
     struct Process *curr_process;
     int quantum ;
-    int * shmaddr
+    int * shmaddr;
 };
 running tracker; 
 int main(int argc, char * argv[])
 {   
  
-    signal(SIGCHLD,switchProcess);
     queue = (struct Process **) malloc(sizeof(struct Process*));
     selAlgo = *argv[1]; 
     key_t key_id;
@@ -48,9 +48,10 @@ int main(int argc, char * argv[])
         rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
         if (rec_val != -1){
             printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
+            message.p.state = READY; 
             insert(message.p); 
         }
-        if(size > 0 &&  *shmaddr == 0){
+        if(size > 0 && (*shmaddr == 0 || (selAlgo==SRTN /*TODO && get fisrt and check if < *shmaddr*/))){
             save_state(); 
             forkProcess();
         }
@@ -62,8 +63,7 @@ int main(int argc, char * argv[])
     destroyClk(true);
     
 }
-int * initiate_shared_memory(int shmid)
-{
+int * initiate_shared_memory(int shmid){
     
     if (shmid == -1)
     {
@@ -86,7 +86,8 @@ void save_state(){
         }
         tracker.curr_process->remain = tracker.curr_process->remain - tracker.quantum; 
         if(tracker.curr_process->remain > 0){
-            //TODOsend signal to stop
+            kill(tracker.curr_process->pid,SIGSTOP);  
+            tracker.curr_process->state = WAITING; 
             insert(*tracker.curr_process);  
         }
     }
@@ -94,8 +95,8 @@ void save_state(){
 
 void forkProcess(){
  
-    tracker.curr_process  = dequeue(queue,&size,selAlgo); 
-    tracker.curr_process->runtime = true; 
+    tracker.curr_process  = dequeue(queue,&size,selAlgo);
+    //tracker.curr_process->state = true; 
     switch (selAlgo)
     {
         case RR: 
@@ -105,19 +106,26 @@ void forkProcess(){
             tracker.quantum = tracker.curr_process->remain; 
             break;
     }
+
     *tracker.shmaddr = tracker.quantum; 
-    printf("start process with arrival = %d and remain = %d at time %d \n\n",tracker.curr_process->arrive,tracker.curr_process->remain,getClk());
-    int sch_pid = fork(),sch_stat_loc;
-    if (sch_pid == -1)
-        perror("error in fork");
-    else if (sch_pid == 0)
-    {   printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
-        if(RR == selAlgo)
-            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o",tracker.curr_process->remain, NULL);
-        else if(HPF == selAlgo){
-            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o", NULL);
+     if(tracker.curr_process->state == WAITING){
+        kill(tracker.curr_process->pid,SIGCONT);
+    } else {// ready
+        printf("start process with arrival = %d and remain = %d at time %d \n\n",tracker.curr_process->arrive,tracker.curr_process->remain,getClk());
+        int pid = fork(),stat_loc;
+        tracker.curr_process->pid = pid; 
+        if (pid == -1)
+            perror("error in fork");
+        else if (pid == 0)
+        {   printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
+            if(RR == selAlgo)
+                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o",tracker.curr_process->remain, NULL);
+            else if(HPF == selAlgo){
+                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o", NULL);
+            }
         }
     }
+    tracker.curr_process->state = RUNNING;
 }
    
 

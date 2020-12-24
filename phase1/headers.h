@@ -26,6 +26,9 @@ typedef short bool;
 #define G_MSG_KEY 77
 #define P_MSG_TYPE 8
 #define P_MSG_KEY 88
+#define RUNNING 1
+#define WAITING 2
+#define READY 3
 
 
 ///==============================
@@ -46,7 +49,8 @@ struct Process{
     int runtime; 
     int priority; 
     int remain;
-    bool running; 
+    int state;
+    int pid; 
 }; 
 
 struct msgbuff

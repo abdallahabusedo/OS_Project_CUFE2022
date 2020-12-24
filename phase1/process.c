@@ -22,6 +22,7 @@ void set_remain_for_RR(int remain)
 int main(int agrc, char * argv[])
 {
     initClk();
+    printf("process started at time %d ***********************\n",getClk());
     remainingtime = atoi(argv[1]); 
     //TODO it needs to get the remaining time from somewhere
     //remainingtime = ??;
@@ -33,10 +34,10 @@ int main(int agrc, char * argv[])
        remain = remain - remainingtime; 
         set_remain_for_RR(remain);
     }
-    printf("process started at time %d \n",getClk());
+    printf("process started at time %d ***********************\n",getClk());
     while (remainingtime > 0)
     {
-        remainingtime =-1;
+        remainingtime -=1;
         sleep(1); 
     }
     printf("process ended at time %d  \n\n",getClk());

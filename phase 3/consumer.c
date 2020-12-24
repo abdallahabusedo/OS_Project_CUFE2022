@@ -74,7 +74,7 @@ int main() {
     
     int bufferSize;
 
-    bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_EXCL | IPC_CREAT | 0666);
+    bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), 0666);
     
     /*
         bufferData[0] ---> buffer size
@@ -85,24 +85,24 @@ int main() {
     int *bufferData;
 
     if(bufferDataId == -1){
-        if (EEXIST == errno) {
-            bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_CREAT | 0666);
-            bufferData = shmat(bufferDataId, (void *)0, 0);
-            if (bufferData == (int *)-1)
-            {
-                perror("Error in attach in consumer");
-                exit(-1);
-            }
-
-            bufferSize = bufferData[0];
-
-        } else {
-            perror("msgget() failed");
-        }
-    }
-    else{
         shmctl(bufferDataId, IPC_RMID, (struct shmid_ds *)0);
         printf("No buffer available\n");
+        exit(-1);
+    } else {
+        bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_CREAT | 0666);
+        bufferData = shmat(bufferDataId, (void *)0, 0);
+        if (bufferData == (int *)-1)
+        {
+            perror("Error in attach in consumer");
+            exit(-1);
+        }
+
+        bufferSize = bufferData[0];
+    }
+
+    bufferId = shmget(buffer_key_id, bufferSize * sizeof(int), IPC_CREAT | 0666);
+    if (bufferId == -1) {
+        perror("Error in create");
         exit(-1);
     }
 

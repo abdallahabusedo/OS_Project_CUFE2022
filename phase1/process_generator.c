@@ -76,7 +76,7 @@ void generateProcesses(struct Process ** processes,int N,int msgq_id){
                 printf("failed to send process");
                 break; 
             }
-            printf("process with arrival: %d send on time %d \n",processes[Next]->arrive,clk);
+            // printf("process with arrival: %d send on time %d \n",processes[Next]->arrive,clk);
             Next++; 
         }
     }
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     else if (clk_pid == 0)
     { 
        // printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
-        execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.o", "clk.o", NULL);
+        execl("clk.out", "clk.out", NULL);
     }
     // fork schedular 
     int sch_pid = fork(),sch_stat_loc;
@@ -122,21 +122,25 @@ int main(int argc, char *argv[])
     else if (sch_pid == 0)
     { 
         //printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
-        execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/sch.o", "sch.o",selAlgo, NULL);
+        execl("scheduler.out", "scheduler.out",selAlgo, NULL);
     }
     // send processes to schedular on time
     initClk();
     generateProcesses(processes,P_N,msgq_id); 
+    waitpid(sch_pid,&sch_stat_loc,0); 
+    if(!(sch_stat_loc & 0x00FF))
+  	    printf("\nscheduler terminated with exit code %d\n", sch_stat_loc>>8);
     destroyClk(true);
 }
 
 void clearResources(int signum)
 {
-    msgctl(msgq_id, IPC_RMID, (struct msqid_ds *) 0);
+    msgctl(msgq_id, IPC_RMID, NULL);
     for (int i = 0; i < P_N; i++)
     {
         free(processes[i]); 
     }
+    destroyClk(true); 
     //delete dynamic memeory 
     //TODO Clears all resources in case of interruption
 }

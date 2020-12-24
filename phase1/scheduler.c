@@ -8,7 +8,7 @@ char selAlgo;
 
 
 void forkProcess();
-int * initiate_shared_memory(int shmid);
+void initiate_shared_memory(int shmid);
 void save_state();
 
 void insert(struct Process p){
@@ -18,19 +18,25 @@ void insert(struct Process p){
 }
 typedef struct RunningState running; 
 struct RunningState{
-    struct Process *curr_process;
+    struct Process curr_process;
     int quantum ;
     int * shmaddr;
 };
+int first = 1; 
+int shmid,msgq_id;
 running tracker; 
+void cleanup(int signum){
+     shmctl(shmid, IPC_RMID, NULL);
+     msgctl(msgq_id,IPC_RMID,NULL); 
+     exit(0);
+}
 int main(int argc, char * argv[])
 {   
- 
-
+    signal(SIGINT, cleanup);
     selAlgo = *argv[1]; 
     queue =  CreateHeap(selAlgo);
     key_t key_id;
-    int rec_val, msgq_id;
+    int rec_val;
     key_id = ftok("keyfile", G_MSG_KEY);               //create unique key
     msgq_id = msgget(key_id, 0666);
     if (msgq_id == -1)
@@ -41,34 +47,31 @@ int main(int argc, char * argv[])
     struct msgbuff message;
     initClk();
     // create shared memory to track if done
-    int shmid, pid;
+    int pid;
     key_t shmid_key_id;
     shmid_key_id = ftok("keyfile", P_SHM_KEY);
-    shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0644);
-    int * shmaddr = initiate_shared_memory(shmid); // initaite with zero
+    shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0666);
+    initiate_shared_memory(shmid); // initaite with zero
     while (true)
     { 
         rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
         if (rec_val != -1){
-            printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
             message.p.state = READY; 
             insert(message.p); 
-            
+            //printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
         }
-        if(queue->count > 0 && *shmaddr == 0 ){//|| (selAlgo==SRTN && front(queue).remain < *shmaddr))){
-            /*save_state();*/ 
-            printf("forking ++++++++++++++++");
+        if(queue->count > 0 && (*tracker.shmaddr == 0|| (selAlgo==SRTN && front(queue).remain < *shmaddr))){
+            save_state(); 
+            //*tracker.curr_process = dequeue(queue);
             forkProcess();
         }
-
     }
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
-    shmctl(shmid, IPC_RMID, (struct shmid_ds *)0);
     destroyClk(true);
     
 }
-int * initiate_shared_memory(int shmid){
+void initiate_shared_memory(int shmid){
     
     if (shmid == -1)
     {
@@ -82,56 +85,51 @@ int * initiate_shared_memory(int shmid){
         exit(-1);
     }
     (*shmaddr) = 0 ;
-   return shmaddr; 
+  tracker.shmaddr = shmaddr; 
 }
 void save_state(){
-    if(tracker.curr_process != NULL){
-        tracker.curr_process->remain = tracker.curr_process->remain - tracker.quantum; 
-        if(tracker.curr_process->remain > 0){
-            kill(tracker.curr_process->pid,SIGSTOP);  
-            tracker.curr_process->state = WAITING; 
-            insert(*tracker.curr_process);  
-        }
+    if(!first){
+        tracker.curr_process.remain = tracker.curr_process.remain - tracker.quantum; 
+        if(tracker.curr_process.remain > 0){
+            kill(tracker.curr_process.pid,SIGSTOP);  
+            tracker.curr_process.state = WAITING; 
+            insert(tracker.curr_process);  
+        }  
     }
+    first = 0; //set not first
 }
 
 void forkProcess(){
- 
-    *tracker.curr_process = dequeue(queue);
-    print("forking: id = %d , arrive  = %d, ",tracker.curr_process->id,tracker.curr_process->arrive); 
-    //tracker.curr_process->state = true; 
+    
+    tracker.curr_process = dequeue(queue);
+    // printf("forking: id = %d , arrive  = %d, ",tracker.curr_process->id,tracker.curr_process->arrive); 
     switch (selAlgo)
     {
         case RR: 
-            if ( tracker.curr_process->remain < RR_PERIOD)
-                tracker.quantum = tracker.curr_process->remain;
+            if ( tracker.curr_process.remain < RR_PERIOD)
+                tracker.quantum = tracker.curr_process.remain;
             else{
-                tracker.curr_process->remain  = RR_PERIOD; 
+                tracker.curr_process.remain  = RR_PERIOD; 
             }
             break;
         default:
-            tracker.quantum = tracker.curr_process->remain; 
+            tracker.quantum = tracker.curr_process.remain; 
             break;
     }
     *tracker.shmaddr = tracker.quantum; 
-     if(tracker.curr_process->state == WAITING){
-        kill(tracker.curr_process->pid,SIGCONT);
+     if(tracker.curr_process.state == WAITING){
+        kill(tracker.curr_process.pid,SIGCONT);
     } else {// ready
-        printf("start process with arrival = %d and remain = %d at time %d \n\n",tracker.curr_process->arrive,tracker.curr_process->remain,getClk());
         int pid = fork(),stat_loc;
-        tracker.curr_process->pid = pid; 
+        tracker.curr_process.pid = pid; 
         if (pid == -1)
             perror("error in fork");
         else if (pid == 0)
-        {   printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
-            if(RR == selAlgo)
-                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o", NULL);
-            else if(HPF == selAlgo){
-                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o", NULL);
-            }
+        {   
+            execl("process.out", "process.out", NULL); 
         }
     }
-    tracker.curr_process->state = RUNNING;
+    tracker.curr_process.state = RUNNING;
 }
    
 

@@ -95,6 +95,7 @@ struct Process dequeue(Heap *h){
     
     // replace first node by last and delete last
     pop = h->arr[0];
+   
     h->arr[0] = h->arr[h->count-1];
     h->count--;
     heapify_top_bottom(h, 0);

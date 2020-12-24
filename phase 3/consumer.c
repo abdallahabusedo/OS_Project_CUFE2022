@@ -62,7 +62,7 @@ int main() {
     key_t sem_key_id;
     sem_key_id = ftok("sem_key", 3);
     int m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
-    if (m) {
+    if (m == -1) {
         perror("Error in create sem");
         exit(-1);
     }
@@ -135,7 +135,7 @@ int main() {
 
             up(m);
         }
-
+        
         consumer = buffer[bufferData[3]];
         printf("consumed item %d at index %d\n", buffer[bufferData[3]], bufferData[3]);
 

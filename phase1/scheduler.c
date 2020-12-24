@@ -6,6 +6,7 @@ struct Process ** queue;
 int size = 0;
 char selAlgo; 
 
+
 void forkProcess();
 void switchProcess();
 
@@ -14,11 +15,16 @@ void insert(struct Process p){
     *pp = p ; 
     enqueue(queue,pp,&size,selAlgo);
 }
-
-
-struct Process *curr_process;
+typedef struct RunningState running; 
+struct RunningState{
+    struct Process *curr_process;
+    int quantum ;
+    int * shmaddr
+};
+running tracker; 
 int main(int argc, char * argv[])
-{
+{   
+ 
     signal(SIGCHLD,switchProcess);
     queue = (struct Process **) malloc(sizeof(struct Process*));
     selAlgo = *argv[1]; 
@@ -33,9 +39,10 @@ int main(int argc, char * argv[])
     }
     struct msgbuff message;
     initClk();
-    int shmid, pid;
-    shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
-    bool first = true; 
+    // create shared memory to track if done
+        int shmid, pid;
+        shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
+        int * shmaddr = initiate_shared_memory(shmid); // initaite with zero
     while (true)
     { 
         rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
@@ -43,20 +50,21 @@ int main(int argc, char * argv[])
             printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
             insert(message.p); 
         }
-        if(size > 0 && first == true){
+        if(size > 0 &&  *shmaddr == 0){
+            save_state(); 
             forkProcess();
-            first = false; 
         }
 
     }
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
+    shmctl(shmid, IPC_RMID, (struct shmid_ds *)0);
     destroyClk(true);
+    
 }
-int getRemainOfLast()
+int * initiate_shared_memory(int shmid)
 {
-    int shmid, pid;
-    shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
+    
     if (shmid == -1)
     {
         perror("Error in create");
@@ -68,46 +76,46 @@ int getRemainOfLast()
         perror("Error in attach in reader");
         exit(-1);
     }
-    int remain = (*shmaddr); 
-    shmctl(shmid, IPC_RMID, (struct shmid_ds *)0);
-    return remain   ; 
-   
+    (*shmaddr) = 0 ;
+   return shmaddr; 
 }
-void switchProcess(){
-    int remainOfLast = getRemainOfLast(); 
-    if(selAlgo == RR) {
-        if(remainOfLast != 0){
-            curr_process->remain = remainOfLast; 
-            insert(*curr_process);
+void save_state(){
+    if(tracker.curr_process != NULL){
+        if(selAlgo == RR && tracker.quantum > tracker.curr_process->remain) {
+            tracker.quantum = tracker.curr_process->remain; 
         }
-    }
-    if(size>0){
-        forkProcess(); 
+        tracker.curr_process->remain = tracker.curr_process->remain - tracker.quantum; 
+        if(tracker.curr_process->remain > 0){
+            //TODOsend signal to stop
+            insert(*tracker.curr_process);  
+        }
     }
 }
 
 void forkProcess(){
-    int quantum ; 
-    curr_process  = dequeue(queue,&size,selAlgo); 
+ 
+    tracker.curr_process  = dequeue(queue,&size,selAlgo); 
+    tracker.curr_process->runtime = true; 
     switch (selAlgo)
     {
         case RR: 
-            quantum = RR_PERIOD;  
+            tracker.quantum = RR_PERIOD;
             break;
         default:
-            quantum = curr_process->runtime; 
+            tracker.quantum = tracker.curr_process->remain; 
             break;
     }
-    printf("start process with arrival = %d and remain = %d at time %d \n\n",curr_process->arrive,curr_process->remain,getClk());
+    *tracker.shmaddr = tracker.quantum; 
+    printf("start process with arrival = %d and remain = %d at time %d \n\n",tracker.curr_process->arrive,tracker.curr_process->remain,getClk());
     int sch_pid = fork(),sch_stat_loc;
     if (sch_pid == -1)
         perror("error in fork");
     else if (sch_pid == 0)
     {   printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
         if(RR == selAlgo)
-            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o",quantum,curr_process->remain, NULL);
+            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o",tracker.curr_process->remain, NULL);
         else if(HPF == selAlgo){
-            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o",quantum, NULL);
+            execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o", NULL);
         }
     }
 }

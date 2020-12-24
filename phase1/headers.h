@@ -46,6 +46,7 @@ struct Process{
     int runtime; 
     int priority; 
     int remain;
+    bool running; 
 }; 
 
 struct msgbuff

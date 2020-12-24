@@ -11,6 +11,7 @@ void insert(struct Process p){
 }
 int main(){
     
+    queue = (struct Process **) malloc(sizeof(struct Process*));
     selAlgo = RR; 
     struct Process p; 
     p.arrive = 1; 
@@ -19,10 +20,13 @@ int main(){
     p.remain = 3; 
     p.runtime = 3; 
     insert(p); 
+    p.arrive = 3; 
+    insert(p); 
+    p.arrive = 2; 
+    insert(p); 
     for (int i = 0; i < size; i++)
     {
         printf("process arrive %d \n\n",dequeue(queue,&size,selAlgo)->arrive);
-
     }
     
 

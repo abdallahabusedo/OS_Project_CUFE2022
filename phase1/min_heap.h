@@ -19,6 +19,12 @@ Heap *CreateHeap(int algorithm){
     return h;
 }
 
+struct Process front(Heap * h){
+    if(h->count >0){
+        return h->arr[0]; 
+    }
+}
+
 void heapify_bottom_top(Heap *h,int index){
     
     struct Process temp;

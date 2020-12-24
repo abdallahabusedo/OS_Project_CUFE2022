@@ -3,15 +3,13 @@
 /* Modify this file as needed*/
 int remainingtime;
 
-void set_remain_for_RR(int remain)
-{
-    
-}
 int main(int agrc, char * argv[])
 {
     initClk();
     int shmid, pid;
-    shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
+    key_t key_id;
+    key_id = ftok("keyfile", P_SHM_KEY);
+    shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0644);
     int *shmaddr = (int*) shmat(shmid, (void *)0, 0);
     if (*shmaddr == -1)
     {
@@ -20,10 +18,14 @@ int main(int agrc, char * argv[])
     }   
 
     printf("process started at time %d ***********************\n",getClk());
+    int last = getClk(); 
     while (*shmaddr > 0)
     {
-        sleep(1); 
-        *shmaddr -=1;
+        int now = getClk(); 
+        if(now-last == 1){
+            *shmaddr -=1;
+            last = now;
+        }
     }
     printf("process ended at time %d  \n\n",getClk());
     shmdt(shmaddr);

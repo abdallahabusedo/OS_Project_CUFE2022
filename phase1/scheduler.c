@@ -1,8 +1,8 @@
 #include "headers.h"
-#include "priority_queue.h"
+#include "min_heap.h"
 #define RR_PERIOD 2
 
-struct Process ** queue;
+Heap* queue;
 int size = 0;
 char selAlgo; 
 
@@ -12,9 +12,9 @@ int * initiate_shared_memory(int shmid);
 void save_state();
 
 void insert(struct Process p){
-    struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
-    *pp = p ; 
-    enqueue(queue,pp,&size,selAlgo);
+    // struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
+    // *pp = p ; 
+    enqueue(queue,p);
 }
 typedef struct RunningState running; 
 struct RunningState{
@@ -26,8 +26,9 @@ running tracker;
 int main(int argc, char * argv[])
 {   
  
-    queue = (struct Process **) malloc(sizeof(struct Process*));
+
     selAlgo = *argv[1]; 
+    queue =  CreateHeap(selAlgo);
     key_t key_id;
     int rec_val, msgq_id;
     key_id = ftok("keyfile", G_MSG_KEY);               //create unique key
@@ -40,9 +41,11 @@ int main(int argc, char * argv[])
     struct msgbuff message;
     initClk();
     // create shared memory to track if done
-        int shmid, pid;
-        shmid = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0644);
-        int * shmaddr = initiate_shared_memory(shmid); // initaite with zero
+    int shmid, pid;
+    key_t shmid_key_id;
+    shmid_key_id = ftok("keyfile", P_SHM_KEY);
+    shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0644);
+    int * shmaddr = initiate_shared_memory(shmid); // initaite with zero
     while (true)
     { 
         rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
@@ -50,9 +53,11 @@ int main(int argc, char * argv[])
             printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
             message.p.state = READY; 
             insert(message.p); 
+            
         }
-        if(size > 0 && (*shmaddr == 0 || (selAlgo==SRTN /*TODO && get fisrt and check if < *shmaddr*/))){
-            save_state(); 
+        if(queue->count > 0 && *shmaddr == 0 ){//|| (selAlgo==SRTN && front(queue).remain < *shmaddr))){
+            /*save_state();*/ 
+            printf("forking ++++++++++++++++");
             forkProcess();
         }
 
@@ -81,9 +86,6 @@ int * initiate_shared_memory(int shmid){
 }
 void save_state(){
     if(tracker.curr_process != NULL){
-        if(selAlgo == RR && tracker.quantum > tracker.curr_process->remain) {
-            tracker.quantum = tracker.curr_process->remain; 
-        }
         tracker.curr_process->remain = tracker.curr_process->remain - tracker.quantum; 
         if(tracker.curr_process->remain > 0){
             kill(tracker.curr_process->pid,SIGSTOP);  
@@ -95,18 +97,22 @@ void save_state(){
 
 void forkProcess(){
  
-    tracker.curr_process  = dequeue(queue,&size,selAlgo);
+    *tracker.curr_process = dequeue(queue);
+    print("forking: id = %d , arrive  = %d, ",tracker.curr_process->id,tracker.curr_process->arrive); 
     //tracker.curr_process->state = true; 
     switch (selAlgo)
     {
         case RR: 
-            tracker.quantum = RR_PERIOD;
+            if ( tracker.curr_process->remain < RR_PERIOD)
+                tracker.quantum = tracker.curr_process->remain;
+            else{
+                tracker.curr_process->remain  = RR_PERIOD; 
+            }
             break;
         default:
             tracker.quantum = tracker.curr_process->remain; 
             break;
     }
-
     *tracker.shmaddr = tracker.quantum; 
      if(tracker.curr_process->state == WAITING){
         kill(tracker.curr_process->pid,SIGCONT);
@@ -119,7 +125,7 @@ void forkProcess(){
         else if (pid == 0)
         {   printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
             if(RR == selAlgo)
-                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o",tracker.curr_process->remain, NULL);
+                execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/p.o", "p.o", NULL);
             else if(HPF == selAlgo){
                 execl("/home/khalid/OS/OS_Project_CUFE2022/phase1/clk.op.o", "p.o", NULL);
             }

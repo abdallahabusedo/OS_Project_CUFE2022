@@ -24,8 +24,8 @@ typedef short bool;
 #define RR '3'
 #define G_MSG_TYPE 7
 #define G_MSG_KEY 77
-#define P_MSG_TYPE 8
-#define P_MSG_KEY 88
+#define P_SHM_TYPE 8
+#define P_SHM_KEY 88
 #define RUNNING 1
 #define WAITING 2
 #define READY 3

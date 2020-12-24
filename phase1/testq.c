@@ -1,8 +1,7 @@
 #include "headers.h"
 #include "min_heap.h"
 
-int main(){
-    
+void build(Heap * h){
     struct Process p1, p2, p3; 
     p1.arrive = 1; 
     p1.id = 1; 
@@ -21,13 +20,19 @@ int main(){
     p3.priority =1 ; 
     p3.remain = 1; 
     p3.runtime = 3;
+    enqueue(h, p1);
+    enqueue(h, p2);
+    enqueue(h, p3);
+
+}
+int main(){
+    
+   
 
     Heap* priorityQueue = CreateHeap(SRTN);
+    build(priorityQueue);
     
-    enqueue(priorityQueue, p1);
-    enqueue(priorityQueue, p2);
-    enqueue(priorityQueue, p3);
-
+   
     for (int i = 0; i < 3; i++) {
         printf("process arrive %d \n\n", dequeue(priorityQueue).arrive);
 

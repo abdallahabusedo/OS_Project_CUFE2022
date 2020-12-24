@@ -102,7 +102,7 @@ int main() {
 
     bufferId = shmget(buffer_key_id, bufferSize * sizeof(int), IPC_CREAT | 0666);
     if (bufferId == -1) {
-        perror("Error in create");
+        perror("Error in reading buffer");
         exit(-1);
     }
 
@@ -117,23 +117,19 @@ int main() {
     }
     struct msgbuf message;
     int rec_val, send_val;
-
-    while(1){
-
-        
-        up(m);
-        
+    while(1){  
+        down(m);
         // to empty message buffer
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, IPC_NOWAIT);
-        ////////////////////////////////////////////////////////
+
         if (bufferData[3] < 0) exit(1);	/* overflow */
         if(bufferData[1] == 0) {
-            down(m);
+            up(m);
             rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, !IPC_NOWAIT);
             if (rec_val == -1)
                 perror("Error in receive");
 
-            up(m);
+            down(m);
         }
         
         consumer = buffer[bufferData[3]];
@@ -147,7 +143,6 @@ int main() {
             if (send_val == -1)
                 perror("Error in send");
         }
-
-        down(m);
+        up(m);
     }
 }

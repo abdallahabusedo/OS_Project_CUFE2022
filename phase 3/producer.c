@@ -138,10 +138,8 @@ int main() {
     }
     struct msgbuf message;
     int rec_val, send_val;
-
     for (int i=1; i<=20; i++) {
         down(m);
-        
         // to empty message buffer
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
         
@@ -151,7 +149,6 @@ int main() {
             rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
             if (rec_val == -1)
                 perror("Error in receive");
-
             down(m);
         }
 
@@ -166,7 +163,6 @@ int main() {
             if (send_val == -1)
                 perror("Error in send");
         }
-
         up(m);
     }
 

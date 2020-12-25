@@ -1,5 +1,6 @@
 #include "headers.h"
 #include "min_heap.h"
+#include "queue.h"
 
 void build(Heap * h){
     struct Process p1, p2, p3; 
@@ -25,20 +26,51 @@ void build(Heap * h){
     enqueue(h, p3);
 
 }
+
+void buildQ(Queue* q){
+    struct Process p1, p2, p3; 
+    p1.arrive = 5; 
+    p1.id = 1; 
+    p1.priority = 5; 
+    p1.remain = 6; 
+    p1.runtime = 2; 
+    
+    p2.arrive = 2; 
+    p2.id = 1; 
+    p2.priority =7 ; 
+    p2.remain = 2; 
+    p2.runtime = 3;
+
+    p3.arrive = 3; 
+    p3.id = 1; 
+    p3.priority =1 ; 
+    p3.remain = 1; 
+    p3.runtime = 3;
+    enqueueQ(q, p1);
+    enqueueQ(q, p2);
+    enqueueQ(q, p3);
+
+}
+
 int main(){
     
-   
-
-    Heap* priorityQueue = CreateHeap(SRTN);
-    build(priorityQueue);
+    // Heap* priorityQueue = CreateHeap(SRTN);
+    // build(priorityQueue);
     
    
+    // for (int i = 0; i < 3; i++) {
+    //     printf("process arrive %d \n\n", dequeue(priorityQueue).arrive);
+
+    // }
+
+    Queue* q = CreateQueue();
+    buildQ(q);
+    display(q);
+
     for (int i = 0; i < 3; i++) {
-        printf("process arrive %d \n\n", dequeue(priorityQueue).arrive);
+        printf("process arrive %d \n\n", dequeueQ(q).arrive);
 
     }
-    
-
 
     return 0; 
 }

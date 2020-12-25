@@ -64,10 +64,10 @@ void generateProcesses(struct Process ** processes,int N,int msgq_id){
     // messages params
     //loop over processes
     while(Next < N){
-        clk = getClk();
-        //printf("process generator at clock %d \n\n",clk); 
-        if(processes[Next] != NULL && processes[Next]->arrive == clk){
-            //send message
+        // clk = getClk();
+        // //printf("process generator at clock %d \n\n",clk); 
+        // if(processes[Next] != NULL && processes[Next]->arrive == clk){
+        //     //send message
             struct msgbuff message;
             message.mtype = G_MSG_TYPE; 
             message.p = *processes[Next]; 
@@ -78,7 +78,7 @@ void generateProcesses(struct Process ** processes,int N,int msgq_id){
             }
             // printf("process with arrival: %d send on time %d \n",processes[Next]->arrive,clk);
             Next++; 
-        }
+        // }
     }
 }
 int createMsgChannel(){

@@ -11,6 +11,7 @@ int main(int agrc, char * argv[])
 {
     signal(SIGINT, cleanup);
     initClk();
+    printf("PID = %s, started at time %d ***********************\n",argv[1],getClk());
     int pid;
     key_t key_id;
     key_id = ftok("keyfile", P_SHM_KEY);
@@ -22,7 +23,6 @@ int main(int agrc, char * argv[])
         exit(-1);
     }   
 
-    printf("process started at time %d ***********************\n",getClk());
     int last = getClk(); 
     while (*shmaddr > 0)
     {
@@ -32,7 +32,8 @@ int main(int agrc, char * argv[])
             last = now;
         }
     }
-    printf("process ended at time %d  \n\n",getClk());
+
+ 
     shmdt(shmaddr);
     destroyClk(false); 
     return 0;

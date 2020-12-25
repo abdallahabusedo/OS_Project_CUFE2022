@@ -52,15 +52,24 @@ int main(int argc, char * argv[])
     shmid_key_id = ftok("keyfile", P_SHM_KEY);
     shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0666);
     initiate_shared_memory(shmid); // initaite with zero
+    bool read = true; 
     while (true)
-    { 
-        rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
+    {   
+        if(read)
+            rec_val = msgrcv(msgq_id, &message, sizeof(message.p), G_MSG_TYPE, IPC_NOWAIT);
         if (rec_val != -1){
             message.p.state = READY; 
-            insert(message.p); 
+            if(message.p.arrive == getClk()){
+                printf("%d",getClk());
+                insert(message.p);
+                read = true;
+                continue;  
+            }else{
+                read = false; 
+            }
             //printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
         }
-        if(queue->count > 0 && (*tracker.shmaddr == 0|| (selAlgo==SRTN && front(queue).remain < *shmaddr))){
+        if(queue->count > 0 && (*tracker.shmaddr == 0 || (selAlgo==SRTN && front(queue).remain < *tracker.shmaddr ))){
             save_state(); 
             //*tracker.curr_process = dequeue(queue);
             forkProcess();
@@ -88,13 +97,16 @@ void initiate_shared_memory(int shmid){
   tracker.shmaddr = shmaddr; 
 }
 void save_state(){
-    if(!first){
-        tracker.curr_process.remain = tracker.curr_process.remain - tracker.quantum; 
+    if(first != 1){
+        tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr); 
         if(tracker.curr_process.remain > 0){
             kill(tracker.curr_process.pid,SIGSTOP);  
             tracker.curr_process.state = WAITING; 
+            printf("PID = %d  stopped at time %d with remain = %d ***********************\n"
+                    ,tracker.curr_process.id,getClk(),tracker.curr_process.remain);
             insert(tracker.curr_process);  
-        }  
+        }else 
+            printf("PID %d finished at time %d \n",tracker.curr_process.id,getClk());
     }
     first = 0; //set not first
 }
@@ -118,6 +130,8 @@ void forkProcess(){
     }
     *tracker.shmaddr = tracker.quantum; 
      if(tracker.curr_process.state == WAITING){
+        printf("PID = %d , arrival = %d, resumed at time %d for : %d ***********************\n"
+            ,tracker.curr_process.id,tracker.curr_process.arrive,getClk(),tracker.quantum);
         kill(tracker.curr_process.pid,SIGCONT);
     } else {// ready
         int pid = fork(),stat_loc;
@@ -125,8 +139,9 @@ void forkProcess(){
         if (pid == -1)
             perror("error in fork");
         else if (pid == 0)
-        {   
-            execl("process.out", "process.out", NULL); 
+        {   char sid[10] ; 
+            sprintf(sid,"%i",tracker.curr_process.id);
+            execl("process.out", "process.out",sid, NULL); 
         }
     }
     tracker.curr_process.state = RUNNING;

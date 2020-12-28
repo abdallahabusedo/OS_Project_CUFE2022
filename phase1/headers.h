@@ -19,9 +19,9 @@ typedef short bool;
 #define false 0
 #define SHKEY 300
 
-#define HPF '1'
-#define SRTN '2'
-#define RR '3'
+#define HPF 1
+#define SRTN 2
+#define RR 3
 #define G_MSG_TYPE 7
 #define G_MSG_KEY 77
 #define P_SHM_TYPE 8

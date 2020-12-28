@@ -1,8 +1,8 @@
 #include "headers.h"
-#include "min_heap.h"
+#include "struct.h"
 #define RR_PERIOD 2
 
-Heap* queue;
+Dstruct* queue;
 int size = 0;
 char selAlgo; 
 
@@ -33,15 +33,16 @@ void cleanup(int signum){
 int main(int argc, char * argv[])
 {   
     signal(SIGINT, cleanup);
-    selAlgo = *argv[1]; 
-    queue =  CreateHeap(selAlgo);
+    selAlgo = atoi(argv[1]); 
+
+    queue =  CreateStruct(selAlgo);
     key_t key_id;
     int rec_val;
     key_id = ftok("keyfile", G_MSG_KEY);               //create unique key
     msgq_id = msgget(key_id, 0666);
     if (msgq_id == -1)
     {
-        perror("Error in create");
+        perror("Error in create\n");
         exit(-1);
     }
     struct msgbuff message;
@@ -60,7 +61,6 @@ int main(int argc, char * argv[])
         if (rec_val != -1){
             message.p.state = READY; 
             if(message.p.arrive == getClk()){
-                printf("%d",getClk());
                 insert(message.p);
                 read = true;
                 continue;  
@@ -69,9 +69,10 @@ int main(int argc, char * argv[])
             }
             //printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
         }
-        if(queue->count > 0 && (*tracker.shmaddr == 0 || (selAlgo==SRTN && front(queue).remain < *tracker.shmaddr ))){
+        if(getcout(queue)/*count of proccesses*/ > 0 
+        && (*tracker.shmaddr == 0 || (selAlgo==SRTN 
+        && front(queue).remain < *tracker.shmaddr ))){
             save_state(); 
-            //*tracker.curr_process = dequeue(queue);
             forkProcess();
         }
     }

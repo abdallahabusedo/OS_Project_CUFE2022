@@ -1,8 +1,7 @@
 #include "headers.h"
-#include "min_heap.h"
-#include "queue.h"
+#include "struct.h"
 
-void build(Heap * h){
+void build(Dstruct * h){
     struct Process p1, p2, p3; 
     p1.arrive = 1; 
     p1.id = 1; 
@@ -63,13 +62,13 @@ int main(){
 
     // }
 
-    Queue* q = CreateQueue();
-    buildQ(q);
-    display(q);
+    Dstruct* s = CreateStruct(2);
+
+    //buildQ(q);
+    build(s); 
 
     for (int i = 0; i < 3; i++) {
-        printf("process arrive %d \n\n", dequeueQ(q).arrive);
-
+        printf("process arrive %d \n\n", dequeue(s).arrive);
     }
 
     return 0; 

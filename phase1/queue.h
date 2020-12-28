@@ -10,6 +10,7 @@ typedef struct node{
 typedef struct queue{
 	node_ptr front;
 	node_ptr rear;
+	int count; 
 }Queue;
 
 
@@ -17,6 +18,7 @@ Queue *CreateQueue(){
     Queue *q = (Queue * ) malloc(sizeof(Queue));
 	q->front = NULL;
 	q->rear = NULL;
+	q->count = 0; 
     return q;
 }
 
@@ -48,7 +50,7 @@ bool enqueueQ(Queue* q, struct Process value){
 		q->rear->previous = item;
 		q->rear = item;
 	}
-
+	q->count += 1; 
 	return true;
 }
 
@@ -58,7 +60,7 @@ struct Process dequeueQ(Queue* q){
 	struct Process data = q->front->data;
 	q->front = q->front->previous;
 	free(temp);
-
+	q->count -= 1; 
 	return data;
 }
 

@@ -12,14 +12,13 @@ typedef struct Heap Heap;
 
 Heap *CreateHeap(int algorithm){
     Heap *h = (Heap * ) malloc(sizeof(Heap)); //one is number of heap
-
     h->count=0;
     h->arr = (struct Process *) malloc(HEAP_SIZE*sizeof(struct Process)); //size in bytes
     h->algorithm = algorithm;
     return h;
 }
 
-struct Process front(Heap * h){
+struct Process frontH(Heap * h){
     if(h->count >0){
         return h->arr[0]; 
     }
@@ -82,7 +81,7 @@ void heapify_top_bottom(Heap *h, int parent_node){
     }
 }
 
-void enqueue(Heap *h, struct Process key){
+void enqueueH(Heap *h, struct Process key){
     if( h->count < HEAP_SIZE){
         h->arr[h->count] = key;
         heapify_bottom_top(h, h->count);
@@ -90,7 +89,7 @@ void enqueue(Heap *h, struct Process key){
     }
 }
 
-struct Process dequeue(Heap *h){
+struct Process dequeueH(Heap *h){
     struct Process pop;
     
     // replace first node by last and delete last

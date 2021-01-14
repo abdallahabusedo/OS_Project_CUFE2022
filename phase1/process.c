@@ -53,11 +53,15 @@ int getSem(){
     }
     return m; 
 }
+void con(){
+    printf("received continue signal ************************\n\n");
+}
 int main(int agrc, char * argv[])
 {   
     signal(SIGINT, cleanup);
+    // signal(SIGCONT,con); 
     initClk();
-    printf("remain = %s, started at time %d ***********************\n",argv[1],getClk());
+    // printf("remain = %s, started at time %d ***********************\n",argv[1],getClk());
     int pid;
     key_t key_id;
     key_id = ftok("keyfile", P_SHM_KEY);
@@ -71,23 +75,32 @@ int main(int agrc, char * argv[])
     int sem = getSem();
     int remain = atoi(argv[1]); 
     int last = getClk(); 
-    
+    printf("my pid is %d and my remain is %d\n",getpid(),remain);
     while(remain > 0){
+         printf("process: enter first loop \n");
         while ( *shmaddr > 0)
         {
+            // printf("process: enter second loop \n");
             int now = getClk(); 
             if(now-last == 1){
+                printf("remain in process-------%d\n",remain);
                 down(sem); 
                 remain--; 
                 *shmaddr -=1;
+                printf("%d\n",*shmaddr);
                 last = now;
                 up(sem); 
             }
-            if(*shmaddr == 0)
-                 kill(getppid(),SIGUSR1);
+            if(*shmaddr == 0){
+                printf("process sent finish signal &&&&   %d \n",*shmaddr);
+                kill(getppid(),SIGUSR1);
+                printf("process sent finish signal &&&&   %d \n",*shmaddr);
+            }
+
         }
        
     }
+    printf("process %d terminated\n",getpid());
 
     shmdt(shmaddr);
     destroyClk(false); 

@@ -102,7 +102,7 @@ int main(int argc, char * argv[])
         exit(-1);
     }
     sem = initiateSem();
-    printf("start schedular\n\n");
+    // printf("start schedular\n\n");
     struct msgbuff message;
     tracker.isRunning = false; 
     initClk();
@@ -121,7 +121,7 @@ int main(int argc, char * argv[])
             if (rec_val != -1){
                 message.p.state = READY; 
                 insert(message.p);
-                printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
+                // printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
             }
         }while(rec_val!= -1 && !message.isLast); 
         
@@ -167,13 +167,17 @@ void save_state(){
     Pdown(sem);
     tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr); 
     if(tracker.curr_process.remain > 0){
+        // sleep(5); 
         kill(tracker.curr_process.pid,SIGSTOP);  
         tracker.curr_process.state = WAITING; 
-        printf("PID = %d  stopped at time %d with remain = %d ***********************\n"
-                ,tracker.curr_process.id,getClk(),tracker.curr_process.remain);
+        printf("At time %d Process %d stopped arr %d total %d remain %d wait\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain);
         insert(tracker.curr_process);  
     }else 
-        printf("PID %d finished at time %d \n",tracker.curr_process.id,getClk());
+        printf("At time %d Process %d finished arr %d total %d remain %d wait\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain);
     tracker.isRunning = false; 
     Pup(sem); 
 }
@@ -198,13 +202,20 @@ void forkProcess(){
             break;
     }
     *tracker.shmaddr = tracker.quantum; 
-    // printf("saved  quantum = %d\n",*tracker.shmaddr);
+    printf("saved  quantum = %d\n",*tracker.shmaddr);
      if(tracker.curr_process.state == WAITING){
-        printf("PID = %d , arrival = %d, resumed at time %d for : %d ***********************\n"
-            ,tracker.curr_process.id,tracker.curr_process.arrive,getClk(),tracker.quantum);
-        kill(tracker.curr_process.pid,SIGCONT);
+        printf("At time %d Process %d resumed arr %d total %d remain %d wait\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain);
+        printf("this is pid ========== %d\n",tracker.curr_process.pid);
+        int result = kill(tracker.curr_process.pid,SIGCONT);
+      //  if(result == -1){
+        printf("result to resume %d \n\n",result);
+       // }
     } else {// ready
-        // printf("fork new process\n");
+        printf("At time %d Process %d started arr %d total %d remain %d wait\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain);
         int pid = fork(),stat_loc;
         tracker.curr_process.pid = pid; 
         if (pid == -1)

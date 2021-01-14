@@ -73,7 +73,7 @@ void generateProcesses(struct Process ** processes,int N,int msgq_id){
             message.p = *processes[Next]; 
             message.isLast = !(Next+1 < N && processes[Next+1] != NULL && processes[Next+1]->arrive == clk);
             // printf("generator send message\n\n");
-            // printf("%d\n\n",message.isLast); 
+            // printf("%d",message.isLast); 
             int send_val = msgsnd(msgq_id,&message,sizeof(struct Process)+ sizeof(bool),IPC_NOWAIT);
             if(send_val == -1){
                 printf("failed to send process");

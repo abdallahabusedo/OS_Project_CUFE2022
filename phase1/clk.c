@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
     *shmaddr = clk; /* initialize shared memory */
     while (1)
     {
-        printf("----------------------------------current clk %d  \n",*shmaddr);
+        // printf("----------------------------------current clk %d  \n",*shmaddr);
         sleep(1);
         (*shmaddr)++;
     }

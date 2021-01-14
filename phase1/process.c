@@ -74,15 +74,20 @@ int main(int agrc, char * argv[])
     }   
     int sem = getSem();
     int remain = atoi(argv[1]); 
-    int last = getClk(); 
     // printf("my pid is %d and my remain is %d\n",getpid(),remain);
     while(remain > 0){
-        //  printf("process: enter first loop \n");
+        // printf("process: enter first loop \n");
+        // printf("shared memory:%d\n", *shmaddr);
+        int last = getClk(); 
         while ( *shmaddr > 0)
         {
             // printf("process: enter second loop \n");
-            int now = getClk(); 
+            int now = getClk();
+            if(now-last > 1)
+                last = now;
+            
             if(now-last == 1){
+                // printf("before down\n");
                 // printf("remain in process-------%d\n",remain);
                 down(sem); 
                 remain--; 
@@ -100,7 +105,7 @@ int main(int agrc, char * argv[])
         }
        
     }
-    printf("process %d terminated\n",getpid());
+    // printf("process %d terminated\n",getpid());
 
     shmdt(shmaddr);
     destroyClk(false); 

@@ -161,7 +161,7 @@ void initiate_shared_memory(int shmid){
         exit(-1);
     }
     (*shmaddr) = 0 ;
-  tracker.shmaddr = shmaddr; 
+    tracker.shmaddr = shmaddr; 
 }
 void save_state(){
     Pdown(sem);
@@ -205,7 +205,8 @@ void forkProcess(){
             tracker.quantum = tracker.curr_process.remain; 
             break;
     }
-    *tracker.shmaddr = tracker.quantum; 
+    *tracker.shmaddr = tracker.quantum;
+    // printf("shared memory %d\n",*tracker.shmaddr);
     // printf("saved  quantum = %d\n",*tracker.shmaddr);
      if(tracker.curr_process.state == WAITING){
         printf("At time %d Process %d resumed arr %d total %d remain %d wait\n"

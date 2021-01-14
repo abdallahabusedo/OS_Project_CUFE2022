@@ -27,7 +27,7 @@ struct Process dequeue(Dstruct * s){
     if(s->algo == RR) return dequeueQ(s->q); 
     return dequeueH(s->h); 
 }
-int getcout(Dstruct * s){
+int getcount(Dstruct * s){
         if(s->algo ==RR){
            return s->q->count; 
         }

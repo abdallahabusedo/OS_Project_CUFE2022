@@ -29,6 +29,7 @@ typedef short bool;
 #define RUNNING 1
 #define WAITING 2
 #define READY 3
+#define SEM_KEY 66
 
 
 ///==============================
@@ -50,6 +51,8 @@ struct Process{
     int priority; 
     int remain;
     int state;
+    int execTime; 
+    int wait;
     int pid; 
 }; 
 
@@ -57,6 +60,7 @@ struct msgbuff
 {
     long mtype;
     struct Process p; 
+    bool isLast; 
 };
 
 

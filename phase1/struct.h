@@ -40,3 +40,7 @@ struct Process front(Dstruct * s){
     }
     return frontH(s->h); 
 }
+
+void displayS(Dstruct * s){
+    if(s->algo == RR) display(s->q);
+}

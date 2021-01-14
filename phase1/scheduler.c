@@ -184,7 +184,11 @@ void save_state(){
 
 void forkProcess(){
     
+    // printf("before dequeue\n");
+    // printf("%d\n",getcount(queue));
+    // displayS(queue);
     tracker.curr_process = dequeue(queue);
+    // printf("after dequeue\n");
     
     // printf("forking: id = %d , arrive  = %d, ",tracker.curr_process.id,tracker.curr_process.arrive); 
     switch (selAlgo)
@@ -193,7 +197,7 @@ void forkProcess(){
             if ( tracker.curr_process.remain < RR_PERIOD)
                 tracker.quantum = tracker.curr_process.remain;
             else{
-                tracker.curr_process.remain  = RR_PERIOD; 
+                tracker.quantum  = RR_PERIOD; 
             }
             break;
         default:
@@ -202,15 +206,15 @@ void forkProcess(){
             break;
     }
     *tracker.shmaddr = tracker.quantum; 
-    printf("saved  quantum = %d\n",*tracker.shmaddr);
+    // printf("saved  quantum = %d\n",*tracker.shmaddr);
      if(tracker.curr_process.state == WAITING){
         printf("At time %d Process %d resumed arr %d total %d remain %d wait\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain);
-        printf("this is pid ========== %d\n",tracker.curr_process.pid);
+        // printf("this is pid ========== %d\n",tracker.curr_process.pid);
         int result = kill(tracker.curr_process.pid,SIGCONT);
       //  if(result == -1){
-        printf("result to resume %d \n\n",result);
+        // printf("result to resume %d \n\n",result);
        // }
     } else {// ready
         printf("At time %d Process %d started arr %d total %d remain %d wait\n"

@@ -44,9 +44,10 @@ bool enqueueQ(Queue* q, struct Process value){
 	item->data = value;
 	item->previous = NULL;
 
-	if(q->rear == NULL)
-		q->front = q->rear = item;
-	else{
+	if(q->rear == NULL){
+		q->front = item;
+		q->rear = item;
+	} else{
 		q->rear->previous = item;
 		q->rear = item;
 	}
@@ -60,7 +61,9 @@ struct Process dequeueQ(Queue* q){
 	struct Process data = q->front->data;
 	q->front = q->front->previous;
 	free(temp);
-	q->count -= 1; 
+	q->count -= 1;
+	if(q->front == NULL)
+		q->rear = NULL;
 	return data;
 }
 

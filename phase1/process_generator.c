@@ -6,6 +6,8 @@ void clearResources(int);
 const char* PROCESSES_FILE_NAME = "../processes.txt";
 struct Process* processes[__INT8_MAX__];
 
+int n = 0;
+
 void readProcesses(struct Process ** processes ,int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
@@ -16,7 +18,7 @@ void readProcesses(struct Process ** processes ,int * count){
     int i = 0; 
     size_t buf_size = 0; 
     while(getline(&line,&buf_size,file) > 0){
-        if(line[0]=='#') continue; 
+        if(line[0]=='#') continue;
         processes[i] = (struct Process *) malloc(sizeof(struct Process*));
         char *id = strtok(line, "\t");
         processes[i]->id = atoi(id); 
@@ -27,11 +29,12 @@ void readProcesses(struct Process ** processes ,int * count){
         char *priority = strtok(NULL, "\t");
         processes[i]->priority = atoi(priority);
         processes[i]->remain = processes[i]->runtime; 
-        i++; 
+        i++;
         // loop through the string to extract all other tokens
        
     }
     *count = i; 
+    n = i;
     fclose(file); 
 }
 
@@ -125,7 +128,9 @@ int main(int argc, char *argv[])
     else if (sch_pid == 0)
     { 
         //printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
-        execl("scheduler.out", "scheduler.out",selAlgo, NULL);
+        char str[10];
+        sprintf(str, "%d", n);
+        execl("scheduler.out", "scheduler.out",selAlgo, str, NULL);
     }
     // send processes to schedular on time
     initClk();

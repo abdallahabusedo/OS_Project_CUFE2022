@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-
+#include <math.h>
 
 typedef short bool;
 #define true 1
@@ -53,6 +53,7 @@ struct Process{
     int state;
     int execTime; 
     int wait;
+    int stopTime;
     int pid; 
 }; 
 

@@ -1,11 +1,18 @@
 #include "headers.h"
 #include "struct.h"
+
 #define RR_PERIOD 2
 
 Dstruct* queue;
 int size = 0;
-char selAlgo; 
+char selAlgo;
 
+
+int n;
+int finishedProcessesNumber = 0;
+float sumWTA = 0;
+int sumWaiting = 0;
+float* wtaArray;
 
 void forkProcess();
 void initiate_shared_memory(int shmid);
@@ -90,7 +97,8 @@ int main(int argc, char * argv[])
     signal(SIGINT, cleanup);
     signal(SIGUSR1, save_state);
     selAlgo = atoi(argv[1]); 
-
+    n = atoi(argv[2]);
+    wtaArray = (float *) malloc(n * sizeof(float));
     queue =  CreateStruct(selAlgo);
     key_t key_id;
     int rec_val;
@@ -165,19 +173,46 @@ void initiate_shared_memory(int shmid){
 }
 void save_state(){
     Pdown(sem);
+    tracker.curr_process.stopTime = getClk();
     tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr); 
     if(tracker.curr_process.remain > 0){
         // sleep(5); 
         kill(tracker.curr_process.pid,SIGSTOP);  
         tracker.curr_process.state = WAITING; 
-        printf("At time %d Process %d stopped arr %d total %d remain %d wait\n"
+        printf("At time %d Process %d stopped arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
-            ,tracker.curr_process.runtime,tracker.curr_process.remain);
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
         insert(tracker.curr_process);  
-    }else 
-        printf("At time %d Process %d finished arr %d total %d remain %d wait\n"
+    }else {
+        int TA = getClk() - tracker.curr_process.arrive;
+        float WTA = (float)TA/tracker.curr_process.runtime;
+        WTA = (int)(WTA * 100.0 + .5)/100.0;
+        sumWTA += WTA;
+        sumWaiting += tracker.curr_process.wait;
+        wtaArray[n] = WTA;
+        finishedProcessesNumber += 1;
+
+        printf("At time %d Process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
-            ,tracker.curr_process.runtime,tracker.curr_process.remain);
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait, TA, WTA
+        );
+
+        if(finishedProcessesNumber == n){
+            float avgWTA = sumWTA / n;
+            float avgWaiting = (float)sumWaiting / n;
+            float sumOfDifferenceSquared = 0;
+            for (int i = 0; i < n; i++) {
+                sumOfDifferenceSquared += pow((wtaArray[i] - avgWTA),2);
+            }
+            float stdWTA = sqrt(sumOfDifferenceSquared/n);
+
+            printf("Avg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", avgWTA, avgWaiting, stdWTA);
+        }
+        
+
+    }
     tracker.isRunning = false; 
     Pup(sem); 
 }
@@ -209,18 +244,22 @@ void forkProcess(){
     // printf("shared memory %d\n",*tracker.shmaddr);
     // printf("saved  quantum = %d\n",*tracker.shmaddr);
      if(tracker.curr_process.state == WAITING){
-        printf("At time %d Process %d resumed arr %d total %d remain %d wait\n"
+        tracker.curr_process.wait += (getClk() - tracker.curr_process.stopTime);
+        printf("At time %d Process %d resumed arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
-            ,tracker.curr_process.runtime,tracker.curr_process.remain);
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
         // printf("this is pid ========== %d\n",tracker.curr_process.pid);
         int result = kill(tracker.curr_process.pid,SIGCONT);
       //  if(result == -1){
         // printf("result to resume %d \n\n",result);
        // }
     } else {// ready
-        printf("At time %d Process %d started arr %d total %d remain %d wait\n"
+        tracker.curr_process.wait += (getClk() - tracker.curr_process.arrive);
+        printf("At time %d Process %d started arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
-            ,tracker.curr_process.runtime,tracker.curr_process.remain);
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
         int pid = fork(),stat_loc;
         tracker.curr_process.pid = pid; 
         if (pid == -1)

@@ -1,28 +1,30 @@
 #include "headers.h"
 #include "struct.h"
 
-int RR_PERIOD = 2;
-
-Dstruct* queue;
-int size = 0;
-char selAlgo;
+int RR_QUANTUM = 2; // RR quantum time 
+Dstruct* queue; // ready queue 
+char selAlgo; //selected algorithm 
 
 
-int n;
-int finishedProcessesNumber = 0;
-float sumWTA = 0;
-int sumWaiting = 0;
-float* wtaArray;
-int usefulTime = 0;
+int n;  // number of processes in input file
+int finishedProcessesNumber = 0; // #process has finished
+float sumWTA = 0; // summation of weighted turn around time
+int sumWaiting = 0; // summation of waiting time for each process in ready queue
+float* wtaArray; // array holds wta time for each process
+int usefulTime = 0; // summation of time processes was being running 
+
 void forkProcess();
 void initiate_shared_memory(int shmid);
 void save_state();
 
+// isert process in ready queue
 void insert(struct Process p){
     // struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
     // *pp = p ; 
     enqueue(queue,p);
 }
+
+// struct that holds info about running process
 typedef struct RunningState running; 
 struct RunningState{
     struct Process curr_process;
@@ -30,12 +32,15 @@ struct RunningState{
     int * shmaddr;
     int isRunning; 
 };
-int first = 1; 
+// resources ids
 int shmid,msgq_id;
 int sem;
+// pointer to log file 
 FILE* logptr;
-
+//tracker to current running prcocess
 running tracker; 
+
+// clear up resrouces and terminates 
 void cleanup(){
     shmctl(shmid, IPC_RMID, NULL);
     semctl(sem, 0, IPC_RMID);
@@ -45,12 +50,15 @@ void cleanup(){
     printf("scheduler is terminating\n");
     exit(0);
 }
+// semaphore union 
 union Semun {
     int              val;
     struct semid_ds *buf;
     unsigned short  *array;
     struct seminfo  *__buf;
 };
+
+//semaphore down 
 void Pdown(int sem)
 {
     struct sembuf p_op;
@@ -65,7 +73,7 @@ void Pdown(int sem)
         exit(-1);
     }
 }
-
+// semaphore up
 void Pup(int sem)
 {
     struct sembuf v_op;
@@ -80,6 +88,8 @@ void Pup(int sem)
         exit(-1);
     }
 }
+// initialize semaphore as up 
+// return semaphore id 
 int initiateSem(){
     union Semun semun;
     int sem_id = ftok("keyfile", SEM_KEY);
@@ -99,14 +109,28 @@ int initiateSem(){
 
 int main(int argc, char * argv[])
 {   
-    signal(SIGINT, cleanup);
-    signal(SIGUSR1, save_state);
+
+    //seletected algorithm 
     selAlgo = atoi(argv[1]); 
-    RR_PERIOD = atoi(argv[3]); 
-    // printf("---------------%d\n",RR_PERIOD);
+
+    //numver of process in input file
     n = atoi(argv[2]);
+
+    //quantum in case of RR
+    RR_QUANTUM = atoi(argv[3]); 
+
+    //hanlde interrupt 
+    signal(SIGINT, cleanup);
+
+    //handle finished process
+    signal(SIGUSR1, save_state);
+
     wtaArray = (float *) malloc(n * sizeof(float));
+
+    // create data structure based on selected algorithm 
     queue =  CreateStruct(selAlgo);
+
+    // get message queue resource
     key_t key_id;
     int rec_val;
     key_id = ftok("keyfile", G_MSG_KEY);        //create unique key
@@ -116,44 +140,61 @@ int main(int argc, char * argv[])
         perror("Error in create\n");
         exit(-1);
     }
+    
+    //initialize semaphore 
     sem = initiateSem();
-    // printf("start schedular\n\n");
+
     struct msgbuff message;
+    
+    //set tracker not running
     tracker.isRunning = false; 
+    
+    // initialize clock 
     initClk();
+
     // create shared memory to track if done
     int pid;
     key_t shmid_key_id;
     shmid_key_id = ftok("keyfile", P_SHM_KEY);
     shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0666);
-    initiate_shared_memory(shmid); // initaite with zero
-    bool read = true; 
 
+    // initaite shared memory with zero
+    initiate_shared_memory(shmid); 
+
+    // open log file 
     logptr = fopen("scheduler.log","w");
     fprintf(logptr, "#At time x process y state arr w total z remain y wait k\n");
+
+    // loop until all processes are finished 
     while (true)
     {   
         do{
+            // check if theres is a process in the message queue 
             rec_val = msgrcv(msgq_id, &message, sizeof(message.p)+sizeof(bool), G_MSG_TYPE, IPC_NOWAIT);
             if (rec_val != -1){
+                //set process stae to ready 
                 message.p.state = READY; 
-                insert(message.p);
-                // printf("scheduler: process received with arrival: %d   ========== \n\n", message.p.arrive);
-            }
-        }while(rec_val!= -1 && !message.isLast); 
+                enqueue(queue,message.p);
+        }
+        }while(rec_val!= -1 && !message.isLast); // exit when process is last (there're no more processes arrived at same time )
         
+        // if selected algorithm is SRTN and there's a process 
+        //with less remain time than the running one
         if(selAlgo==SRTN && getcount(queue)> 0 &&
         front(queue).remain < *tracker.shmaddr ){
+            //send signal to save info of current running 
             raise(SIGUSR1);
         }
+        //if tracker has no running process fork new porcess
         if(!tracker.isRunning && getcount(queue)/*count of proccesses*/ > 0){
             forkProcess();
         }
     }
-    //TODO implement the scheduler :)
-    //upon termination release the clock resources.
-    destroyClk(true);
+    // destroyClk(true);
 }
+
+// initialize shared memory to store the time 
+//that running process should take before context switching 
 void initiate_shared_memory(int shmid){
     if (shmid == -1)
     {
@@ -169,16 +210,24 @@ void initiate_shared_memory(int shmid){
     (*shmaddr) = 0 ;
     tracker.shmaddr = shmaddr; 
 }
+
+// save info of current running process 
+// handle if is last one in input file --> save log data
+// if process not finished enqueue it again in ready queue
 void save_state(){
+    // wait until process finishes using shared memroy 
     Pdown(sem);
     tracker.curr_process.stopTime = getClk();
+
+    // calculate remainging time of last running process 
     tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr);
+
+    // add running rime to userfulTime
     usefulTime += (tracker.quantum  - *tracker.shmaddr);
     if(tracker.curr_process.remain > 0){
-        // sleep(5); 
+        // send signal to running process to stop 
         kill(tracker.curr_process.pid,SIGSTOP);  
         tracker.curr_process.state = WAITING;
-        
         fprintf(logptr, "At time %d Process %d stopped arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
@@ -188,8 +237,11 @@ void save_state(){
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
             ,tracker.curr_process.wait);
-        insert(tracker.curr_process);  
+        enqueue(queue,tracker.curr_process); 
+        // insert(tracker.curr_process);  
     }else {
+        
+        // process has finished calculate and write its data to the log file 
         int TA = getClk() - tracker.curr_process.arrive;
         float WTA = (float)TA/tracker.curr_process.runtime;
         WTA = (int)(WTA * 100.0 + .5)/100.0;
@@ -197,7 +249,6 @@ void save_state(){
         sumWaiting += tracker.curr_process.wait;
         wtaArray[finishedProcessesNumber] = WTA;
         finishedProcessesNumber += 1;
-
         fprintf(logptr, "At time %d Process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
@@ -209,16 +260,16 @@ void save_state(){
             ,tracker.curr_process.runtime,tracker.curr_process.remain
             ,tracker.curr_process.wait, TA, WTA
         );
-
+        // if last process in input file 
         if(finishedProcessesNumber == n){
             FILE* fptr = fopen("scheduler.perf","w");
-            // printf("useful time: %d\n", usefulTime);
+
+            // calculate statistics 
             float utilization = 100.0*usefulTime/getClk();
             float avgWTA = sumWTA / n;
             float avgWaiting = (float)sumWaiting / n;
             float sumOfDifferenceSquared = 0;
             for (int i = 0; i < n; i++) {
-                // printf("wta time %0.2f\n\n",wtaArray[i]);
                 sumOfDifferenceSquared += ((wtaArray[i] - avgWTA)*(wtaArray[i] - avgWTA));
             }
             float stdWTA = sqrt(sumOfDifferenceSquared/n);
@@ -227,40 +278,41 @@ void save_state(){
             printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
 
             fclose(fptr);
-            // cleanup();
+            // terminate all 
             destroyClk(true);
         }
     }
     tracker.isRunning = false; 
+    // free shared memory
     Pup(sem); 
 }
 
 void forkProcess(){
     
-    // printf("before dequeue\n");
-    // printf("%d\n",getcount(queue));
-    // displayS(queue);
+    // get process 
     tracker.curr_process = dequeue(queue);
-    // printf("after dequeue\n");
-    
-    // printf("forking: id = %d , arrive  = %d, ",tracker.curr_process.id,tracker.curr_process.arrive); 
+  
+    // get quantum based on algo
     switch (selAlgo)
     {
-        case RR: 
-            if ( tracker.curr_process.remain < RR_PERIOD)
+        case RR:
+            // if remain less thant quantum 
+            // set quantum to remain
+            if ( tracker.curr_process.remain < RR_QUANTUM)
                 tracker.quantum = tracker.curr_process.remain;
             else{
-                tracker.quantum  = RR_PERIOD; 
+                tracker.quantum  = RR_QUANTUM; 
             }
             break;
         default:
-            // printf("process with id = %d and remain is %d\n",tracker.curr_process.id,tracker.curr_process.remain);
             tracker.quantum = tracker.curr_process.remain; 
             break;
     }
+
+    //set quantum of next process 
     *tracker.shmaddr = tracker.quantum;
-    // printf("shared memory %d\n",*tracker.shmaddr);
-    // printf("saved  quantum = %d\n",*tracker.shmaddr);
+   
+    // if process was stopped, continue
      if(tracker.curr_process.state == WAITING){
         tracker.curr_process.wait += (getClk() - tracker.curr_process.stopTime);
         
@@ -273,12 +325,10 @@ void forkProcess(){
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
             ,tracker.curr_process.wait);
-        // printf("this is pid ========== %d\n",tracker.curr_process.pid);
+       // send continue signal to process with pid 
         int result = kill(tracker.curr_process.pid,SIGCONT);
-      //  if(result == -1){
-        // printf("result to resume %d \n\n",result);
-       // }
-    } else {// ready
+    } else {// process is new 
+        //calc waiting time of process 
         tracker.curr_process.wait += (getClk() - tracker.curr_process.arrive);
         
         fprintf(logptr, "At time %d Process %d started arr %d total %d remain %d wait %d\n"
@@ -290,6 +340,8 @@ void forkProcess(){
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
             ,tracker.curr_process.wait);
+        
+        //for process 
         int pid = fork(),stat_loc;
         tracker.curr_process.pid = pid; 
         if (pid == -1)
@@ -297,12 +349,12 @@ void forkProcess(){
         else if (pid == 0)
         {    
             char remain[10] ; 
-            // printf("start child\n");
             sprintf(remain,"%i",tracker.curr_process.runtime);
+            // replace child code to process.out file 
             execl("process.out", "process.out",remain, NULL); 
-            // printf("execl failedddddddddddddddddddddddddd\n\n");
         }
     }
+    //set state of process to running 
     tracker.curr_process.state = RUNNING;
     tracker.isRunning = true; 
 }

@@ -19,7 +19,8 @@ typedef short bool;
 #define false 0
 #define SHKEY 300
 
-#define HPF 1
+// some defines 
+#define HPF 1 
 #define SRTN 2
 #define RR 3
 #define G_MSG_TYPE 7
@@ -44,6 +45,7 @@ int getClk()
     return *shmaddr;
 }
 
+// process data structure 
 struct Process{
     int id; 
     int arrive; 
@@ -57,11 +59,12 @@ struct Process{
     int pid; 
 }; 
 
+// message buff structure 
 struct msgbuff
 {
-    long mtype;
-    struct Process p; 
-    bool isLast; 
+    long mtype; 
+    struct Process p; // process 
+    bool isLast;    // is last one with save arrival 
 };
 
 

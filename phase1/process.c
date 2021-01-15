@@ -1,18 +1,21 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
-int remainingtime;
 int shmid;
+
+// clean up resource and terminate 
 void cleanup(int signum){
      shmctl(shmid, IPC_RMID, NULL);
      exit(0);
 }
+//semaphore union 
 union Semun {
     int              val;
     struct semid_ds *buf;
     unsigned short  *array;
     struct seminfo  *__buf;
 };
+// lock semaphore
 void down(int sem)
 {
     struct sembuf p_op;
@@ -27,7 +30,7 @@ void down(int sem)
         exit(-1);
     }
 }
-
+// release semaphore
 void up(int sem)
 {
     struct sembuf v_op;
@@ -42,6 +45,8 @@ void up(int sem)
         exit(-1);
     }
 }
+
+// get semaphore
 int getSem(){
     union Semun semun;
     key_t sem_key_id;
@@ -53,15 +58,12 @@ int getSem(){
     }
     return m; 
 }
-void con(){
-    printf("received continue signal ************************\n\n");
-}
+
 int main(int agrc, char * argv[])
 {   
-    // signal(SIGINT, cleanup);
-    // signal(SIGCONT,con); 
+   
     initClk();
-    // printf("remain = %s, started at time %d ***********************\n",argv[1],getClk());
+    // get shared memory
     int pid;
     key_t key_id;
     key_id = ftok("keyfile", P_SHM_KEY);
@@ -72,41 +74,45 @@ int main(int agrc, char * argv[])
         perror("Error in attach in writer");
         exit(-1);
     }   
+    //get semaphore
     int sem = getSem();
+
+    // total time of process 
     int remain = atoi(argv[1]); 
-    // printf("my pid is %d and my remain is %d\n",getpid(),remain);
+
+    // exit when proecess is finished 
     while(remain > 0){
-        // printf("process: enter first loop \n");
-        // printf("shared memory:%d\n", *shmaddr);
         int last = getClk(); 
         while ( *shmaddr > 0)
         {
-            // printf("process: enter second loop \n");
             int now = getClk();
+            // if more than one cycle 
             if(now-last > 1)
                 last = now;
             
+            // if one cycle 
             if(now-last == 1){
-                // printf("before down\n");
-                // printf("remain in process-------%d\n",remain);
+                // lock sem
                 down(sem); 
+
+                // decrease total by one 
                 remain--; 
+
+                // decrease quantum by one 
                 *shmaddr -=1;
-                // printf("%d\n",*shmaddr);
+
                 last = now;
+                // release sem 
                 up(sem); 
             }
             if(*shmaddr == 0){
-                // printf("process sent finish signal &&&&   %d \n",*shmaddr);
+                //notify scheduler process has finished quantum 
                 kill(getppid(),SIGUSR1);
-                // printf("process sent finish signal &&&&   %d \n",*shmaddr);
             }
-
         }
-       
     }
     printf("process %d terminated\n",getpid());
-
+    //release resources 
     shmdt(shmaddr);
     destroyClk(false); 
     return 0;

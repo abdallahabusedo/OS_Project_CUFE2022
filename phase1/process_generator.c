@@ -3,10 +3,12 @@
 
 void clearResources(int);
 
+// input file name that holds processes 
 const char* PROCESSES_FILE_NAME = "../processes.txt";
-struct Process** processes;
-int P_N=0;
+struct Process** processes; // array of processes 
+int P_N=0; // number of processs
 
+// get processes count in input file
 int getProcessesCount(){
      FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
@@ -25,6 +27,7 @@ int getProcessesCount(){
     fclose(file); 
     return i; 
 }
+// read processes from input file 
 void readProcesses(int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
@@ -60,8 +63,10 @@ void readProcesses(int * count){
     *count = i; 
     fclose(file); 
 }
-int RR_PERIOD; 
+// RR quantum from user 
+int RR_QUANTUM = 2 ; 
 
+// get algorithm number from user 
 char * readAlgoNum()
 {
     printf("Please select one of these algorithms: \n");
@@ -79,7 +84,7 @@ char * readAlgoNum()
     {
         if(c == '3'){
             printf("enter RR quantum\n"); 
-            scanf("%d",&RR_PERIOD); 
+            scanf("%d",&RR_QUANTUM); 
         }
         char * selected_algorithm_Number  = malloc(sizeof(char)); 
         *selected_algorithm_Number = c; 
@@ -87,33 +92,37 @@ char * readAlgoNum()
     }
 }
 
-
+// index of process to send 
 int Next = 0; 
+
+// start sending proceeses to schedular
 void generateProcesses(int N,int msgq_id){
     int clk;
     // messages params
     //loop over processes
     while(Next < N){
         clk = getClk();
-        // printf("process generator at clock %d \n\n",clk); 
+
+        // while process's arrival time is equal to clock send it to scheduler 
         while(Next < N && processes[Next] != NULL && processes[Next]->arrive == clk){
             //send message
             struct msgbuff message;
             message.mtype = G_MSG_TYPE; 
             message.p = *processes[Next]; 
+
+            // check if there's a process in input file with same arrival time 
+            // set is last to true if there isn't 
             message.isLast = !(Next+1 < N && processes[Next+1] != NULL && processes[Next+1]->arrive == clk);
-            // printf("generator send message\n\n");
-            // printf("%d",message.isLast); 
             int send_val = msgsnd(msgq_id,&message,sizeof(struct Process)+ sizeof(bool),IPC_NOWAIT);
             if(send_val == -1){
                 printf("failed to send process");
                 break; 
             }
-            // printf("process with arrival: %d send on time %d \n",processes[Next]->arrive,clk);
             Next++; 
         }
     }
 }
+// get message queue 
 int createMsgChannel(){
     key_t key_id;
     int msgq_id, send_val;
@@ -128,18 +137,19 @@ int createMsgChannel(){
 int msgq_id ; 
 int main(int argc, char *argv[])
 {
+    // handle interrupt signal 
     signal(SIGINT, clearResources);
+
     // 1. Read the input files.
-   
     readProcesses(&P_N); 
    
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     char * selAlgo = readAlgoNum();
 
+    // get message queue
     msgq_id = createMsgChannel(); 
     
     // 3. Initiate and create the scheduler and clock processes.
-    // initialize clock
     int clk_pid, clk_stat_loc;
     clk_pid = fork();
     if (clk_pid == -1)
@@ -159,20 +169,22 @@ int main(int argc, char *argv[])
         char str[10];
         sprintf(str, "%d", P_N);
         char per[10];
-        sprintf(per, "%d", RR_PERIOD);
+        sprintf(per, "%d", RR_QUANTUM);
         execl("scheduler.out", "scheduler.out",selAlgo, str,per, NULL);
     }
-    // send processes to schedular on time
+  
+    // initialize clock
     initClk();
+    
+    // start sending processes to schedular on time
     generateProcesses(P_N,msgq_id); 
 
-    // while(true);
+    // wait for schedular to terminate
     waitpid(sch_pid,&sch_stat_loc,0); 
-    // if(!(sch_stat_loc & 0x00FF))
-  	//     printf("\nscheduler terminated with exit code %d\n", sch_stat_loc>>8);
     // destroyClk(true);
 }
 
+// clear resources 
 void clearResources(int signum)
 {
     msgctl(msgq_id, IPC_RMID, NULL);

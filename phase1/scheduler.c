@@ -91,7 +91,10 @@ int initiateSem(){
     return m; 
 
 }
- int sem; 
+
+int sem;
+FILE* logptr;
+
 int main(int argc, char * argv[])
 {   
     signal(SIGINT, cleanup);
@@ -121,6 +124,9 @@ int main(int argc, char * argv[])
     shmid = shmget(shmid_key_id,  sizeof(int), IPC_CREAT | 0666);
     initiate_shared_memory(shmid); // initaite with zero
     bool read = true; 
+
+    logptr = fopen("scheduler.log","w");
+    fprintf(logptr, "#At time x process y state arr w total z remain y wait k\n");
     while (true)
     {   
         do{
@@ -178,7 +184,13 @@ void save_state(){
     if(tracker.curr_process.remain > 0){
         // sleep(5); 
         kill(tracker.curr_process.pid,SIGSTOP);  
-        tracker.curr_process.state = WAITING; 
+        tracker.curr_process.state = WAITING;
+        
+        fprintf(logptr, "At time %d Process %d stopped arr %d total %d remain %d wait %d\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
+
         printf("At time %d Process %d stopped arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
@@ -193,6 +205,12 @@ void save_state(){
         wtaArray[n] = WTA;
         finishedProcessesNumber += 1;
 
+        fprintf(logptr, "At time %d Process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait, TA, WTA
+        );
+
         printf("At time %d Process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
@@ -200,6 +218,7 @@ void save_state(){
         );
 
         if(finishedProcessesNumber == n){
+            FILE* fptr = fopen("scheduler.perf","w");
             float avgWTA = sumWTA / n;
             float avgWaiting = (float)sumWaiting / n;
             float sumOfDifferenceSquared = 0;
@@ -208,7 +227,11 @@ void save_state(){
             }
             float stdWTA = sqrt(sumOfDifferenceSquared/n);
 
+            fprintf(fptr, "Avg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", avgWTA, avgWaiting, stdWTA);
             printf("Avg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", avgWTA, avgWaiting, stdWTA);
+
+            fclose(fptr);
+            fclose(logptr);
         }
         
 
@@ -245,6 +268,12 @@ void forkProcess(){
     // printf("saved  quantum = %d\n",*tracker.shmaddr);
      if(tracker.curr_process.state == WAITING){
         tracker.curr_process.wait += (getClk() - tracker.curr_process.stopTime);
+        
+        fprintf(logptr, "At time %d Process %d resumed arr %d total %d remain %d wait %d\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
+
         printf("At time %d Process %d resumed arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
@@ -256,6 +285,12 @@ void forkProcess(){
        // }
     } else {// ready
         tracker.curr_process.wait += (getClk() - tracker.curr_process.arrive);
+        
+        fprintf(logptr, "At time %d Process %d started arr %d total %d remain %d wait %d\n"
+            ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
+            ,tracker.curr_process.runtime,tracker.curr_process.remain
+            ,tracker.curr_process.wait);
+
         printf("At time %d Process %d started arr %d total %d remain %d wait %d\n"
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain

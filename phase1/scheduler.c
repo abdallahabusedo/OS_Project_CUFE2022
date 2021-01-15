@@ -42,6 +42,7 @@ void cleanup(){
     fclose(logptr);
     free(wtaArray);
     //  msgctl(msgq_id,IPC_RMID,NULL); 
+    printf("scheduler is terminating\n");
     exit(0);
 }
 union Semun {
@@ -81,21 +82,18 @@ void Pup(int sem)
 }
 int initiateSem(){
     union Semun semun;
-    key_t sem_key_id;
-    sem_key_id = ftok("keyfile", SEM_KEY);
-    int m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
+    int sem_id = ftok("keyfile", SEM_KEY);
+    int m = semget(sem_id, 1, 0666 | IPC_CREAT);
     if (m == -1) {
         perror("Error in create sem");
         exit(-1);
     }
-
     semun.val = 1;
     if (semctl(m, 0, SETVAL, semun) == -1) {
         perror("Error in semctl, this");
         exit(-1);
     }
     return m; 
-
 }
 
 
@@ -150,20 +148,10 @@ int main(int argc, char * argv[])
         if(!tracker.isRunning && getcount(queue)/*count of proccesses*/ > 0){
             forkProcess();
         }
-    
-        // if((getcount(queue)/*count of proccesses*/ > 0 )
-        // && (*tracker.shmaddr == 0 || (selAlgo==SRTN 
-        // && front(queue).remain < *tracker.shmaddr ))){
-        //     Pdown(sem);
-        //     save_state(); 
-        //     Pup(sem);
-        //     forkProcess();
-        // }
     }
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
     destroyClk(true);
-    
 }
 void initiate_shared_memory(int shmid){
     
@@ -238,11 +226,9 @@ void save_state(){
             printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
 
             fclose(fptr);
-
-            cleanup();
+            // cleanup();
+            destroyClk(true);
         }
-        
-
     }
     tracker.isRunning = false; 
     Pup(sem); 
@@ -311,7 +297,7 @@ void forkProcess(){
         {    
             char remain[10] ; 
             // printf("start child\n");
-            sprintf(remain,"%i",tracker.curr_process.remain);
+            sprintf(remain,"%i",tracker.curr_process.runtime);
             execl("process.out", "process.out",remain, NULL); 
             // printf("execl failedddddddddddddddddddddddddd\n\n");
         }

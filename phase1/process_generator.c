@@ -4,17 +4,43 @@
 void clearResources(int);
 
 const char* PROCESSES_FILE_NAME = "../processes.txt";
-struct Process* processes[__INT8_MAX__];
+struct Process** processes;
+int P_N=0;
 
-void readProcesses(struct Process ** processes ,int * count){
+int getProcessesCount(){
+     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
+    if(!file){
+        printf("not able to read processes"); 
+        exit(-1);
+    }
+    int n = 0; 
+    size_t buf_size = 0; 
+    char * line; 
+    int i = 0; 
+    while(getline(&line,&buf_size,file) > 0){
+        if(line[0]=='#') continue;
+        i++;
+        // loop through the string to extract all other token
+    }
+    fclose(file); 
+    return i; 
+}
+void readProcesses(int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
         printf("not able to read processes"); 
         exit(-1);
     }
-    char * line; 
-    int i = 0; 
+    int n = 0; 
     size_t buf_size = 0; 
+    char * line; 
+    
+    P_N = getProcessesCount(); 
+    processes = malloc(P_N * sizeof(struct Process* ));
+
+    fseek(file, 0, SEEK_SET);
+
+    int i = 0; 
     while(getline(&line,&buf_size,file) > 0){
         if(line[0]=='#') continue;
         processes[i] = (struct Process *) malloc(sizeof(struct Process));
@@ -59,7 +85,7 @@ char * readAlgoNum()
 
 
 int Next = 0; 
-void generateProcesses(struct Process ** processes,int N,int msgq_id){
+void generateProcesses(int N,int msgq_id){
     int clk;
     // messages params
     //loop over processes
@@ -95,13 +121,14 @@ int createMsgChannel(){
     }
     return msgq_id; 
 }
-int P_N = 0;  int msgq_id ; 
+int msgq_id ; 
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
     // 1. Read the input files.
    
-    readProcesses(processes,&P_N); 
+    readProcesses(&P_N); 
+   
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     char * selAlgo = readAlgoNum();
 
@@ -131,12 +158,13 @@ int main(int argc, char *argv[])
     }
     // send processes to schedular on time
     initClk();
-    generateProcesses(processes,P_N,msgq_id); 
-    waitpid(sch_pid,&sch_stat_loc,0); 
-    if(!(sch_stat_loc & 0x00FF))
-  	    printf("\nscheduler terminated with exit code %d\n", sch_stat_loc>>8);
+    generateProcesses(P_N,msgq_id); 
 
-    destroyClk(true);
+    // while(true);
+    waitpid(sch_pid,&sch_stat_loc,0); 
+    // if(!(sch_stat_loc & 0x00FF))
+  	//     printf("\nscheduler terminated with exit code %d\n", sch_stat_loc>>8);
+    // destroyClk(true);
 }
 
 void clearResources(int signum)
@@ -146,7 +174,7 @@ void clearResources(int signum)
     for (int i = 0; i < P_N; i++) {
         free(processes[i]); 
     }
-
+    free(processes);
     printf("process_generator is terminating\n");
     exit(0);
 }

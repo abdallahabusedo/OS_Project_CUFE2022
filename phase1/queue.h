@@ -56,7 +56,6 @@ bool enqueueQ(Queue* q, struct Process value){
 }
 
 struct Process dequeueQ(Queue* q){
-
 	node_ptr temp = q->front;
 	struct Process data = q->front->data;
 	q->front = q->front->previous;

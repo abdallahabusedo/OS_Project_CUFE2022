@@ -1,7 +1,7 @@
 #include "headers.h"
 #include "struct.h"
 
-#define RR_PERIOD 2
+int RR_PERIOD = 2;
 
 Dstruct* queue;
 int size = 0;
@@ -102,6 +102,8 @@ int main(int argc, char * argv[])
     signal(SIGINT, cleanup);
     signal(SIGUSR1, save_state);
     selAlgo = atoi(argv[1]); 
+    RR_PERIOD = atoi(argv[3]); 
+    // printf("---------------%d\n",RR_PERIOD);
     n = atoi(argv[2]);
     wtaArray = (float *) malloc(n * sizeof(float));
     queue =  CreateStruct(selAlgo);
@@ -133,7 +135,6 @@ int main(int argc, char * argv[])
     {   
         do{
             rec_val = msgrcv(msgq_id, &message, sizeof(message.p)+sizeof(bool), G_MSG_TYPE, IPC_NOWAIT);
-        
             if (rec_val != -1){
                 message.p.state = READY; 
                 insert(message.p);
@@ -154,7 +155,6 @@ int main(int argc, char * argv[])
     destroyClk(true);
 }
 void initiate_shared_memory(int shmid){
-    
     if (shmid == -1)
     {
         perror("Error in create");
@@ -195,7 +195,7 @@ void save_state(){
         WTA = (int)(WTA * 100.0 + .5)/100.0;
         sumWTA += WTA;
         sumWaiting += tracker.curr_process.wait;
-        wtaArray[n] = WTA;
+        wtaArray[finishedProcessesNumber] = WTA;
         finishedProcessesNumber += 1;
 
         fprintf(logptr, "At time %d Process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n"
@@ -218,7 +218,8 @@ void save_state(){
             float avgWaiting = (float)sumWaiting / n;
             float sumOfDifferenceSquared = 0;
             for (int i = 0; i < n; i++) {
-                sumOfDifferenceSquared += pow((wtaArray[i] - avgWTA),2);
+                // printf("wta time %0.2f\n\n",wtaArray[i]);
+                sumOfDifferenceSquared += ((wtaArray[i] - avgWTA)*(wtaArray[i] - avgWTA));
             }
             float stdWTA = sqrt(sumOfDifferenceSquared/n);
 

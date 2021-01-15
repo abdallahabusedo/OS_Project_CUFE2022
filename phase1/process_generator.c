@@ -60,7 +60,7 @@ void readProcesses(int * count){
     *count = i; 
     fclose(file); 
 }
-
+int RR_PERIOD; 
 
 char * readAlgoNum()
 {
@@ -77,7 +77,11 @@ char * readAlgoNum()
     }
     else
     {
-        char * selected_algorithm_Number  = malloc(sizeof(char*)); 
+        if(c == '3'){
+            printf("enter RR quantum\n"); 
+            scanf("%d",&RR_PERIOD); 
+        }
+        char * selected_algorithm_Number  = malloc(sizeof(char)); 
         *selected_algorithm_Number = c; 
         return selected_algorithm_Number;
     }
@@ -154,7 +158,9 @@ int main(int argc, char *argv[])
         //printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
         char str[10];
         sprintf(str, "%d", P_N);
-        execl("scheduler.out", "scheduler.out",selAlgo, str, NULL);
+        char per[10];
+        sprintf(per, "%d", RR_PERIOD);
+        execl("scheduler.out", "scheduler.out",selAlgo, str,per, NULL);
     }
     // send processes to schedular on time
     initClk();
@@ -170,7 +176,6 @@ int main(int argc, char *argv[])
 void clearResources(int signum)
 {
     msgctl(msgq_id, IPC_RMID, NULL);
-    
     for (int i = 0; i < P_N; i++) {
         free(processes[i]); 
     }

@@ -6,20 +6,18 @@ void clearResources(int);
 const char* PROCESSES_FILE_NAME = "../processes.txt";
 struct Process* processes[__INT8_MAX__];
 
-int n = 0;
-
 void readProcesses(struct Process ** processes ,int * count){
     FILE * file = fopen(PROCESSES_FILE_NAME,"r"); 
     if(!file){
         printf("not able to read processes"); 
-        exit(-1);                                   // what should we do here ? 
+        exit(-1);
     }
     char * line; 
     int i = 0; 
     size_t buf_size = 0; 
     while(getline(&line,&buf_size,file) > 0){
         if(line[0]=='#') continue;
-        processes[i] = (struct Process *) malloc(sizeof(struct Process*));
+        processes[i] = (struct Process *) malloc(sizeof(struct Process));
         char *id = strtok(line, "\t");
         processes[i]->id = atoi(id); 
         char *arrive = strtok(NULL, "\t");
@@ -34,7 +32,6 @@ void readProcesses(struct Process ** processes ,int * count){
        
     }
     *count = i; 
-    n = i;
     fclose(file); 
 }
 
@@ -98,7 +95,7 @@ int createMsgChannel(){
     }
     return msgq_id; 
 }
- int P_N = 0;  int msgq_id ; 
+int P_N = 0;  int msgq_id ; 
 int main(int argc, char *argv[])
 {
     signal(SIGINT, clearResources);
@@ -129,7 +126,7 @@ int main(int argc, char *argv[])
     { 
         //printf("\nI am the child, my pid = %d and my parent's pid = %d\n\n", getpid(), getppid());
         char str[10];
-        sprintf(str, "%d", n);
+        sprintf(str, "%d", P_N);
         execl("scheduler.out", "scheduler.out",selAlgo, str, NULL);
     }
     // send processes to schedular on time
@@ -138,17 +135,18 @@ int main(int argc, char *argv[])
     waitpid(sch_pid,&sch_stat_loc,0); 
     if(!(sch_stat_loc & 0x00FF))
   	    printf("\nscheduler terminated with exit code %d\n", sch_stat_loc>>8);
+
     destroyClk(true);
 }
 
 void clearResources(int signum)
 {
     msgctl(msgq_id, IPC_RMID, NULL);
-    for (int i = 0; i < P_N; i++)
-    {
+    
+    for (int i = 0; i < P_N; i++) {
         free(processes[i]); 
     }
-    destroyClk(true); 
-    //delete dynamic memeory 
-    //TODO Clears all resources in case of interruption
+
+    printf("process_generator is terminating\n");
+    exit(0);
 }

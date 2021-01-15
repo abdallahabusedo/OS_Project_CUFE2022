@@ -13,7 +13,7 @@ int finishedProcessesNumber = 0;
 float sumWTA = 0;
 int sumWaiting = 0;
 float* wtaArray;
-
+int usefulTime = 0;
 void forkProcess();
 void initiate_shared_memory(int shmid);
 void save_state();
@@ -32,11 +32,17 @@ struct RunningState{
 };
 int first = 1; 
 int shmid,msgq_id;
+int sem;
+FILE* logptr;
+
 running tracker; 
-void cleanup(int signum){
-     shmctl(shmid, IPC_RMID, NULL);
-     msgctl(msgq_id,IPC_RMID,NULL); 
-     exit(0);
+void cleanup(){
+    shmctl(shmid, IPC_RMID, NULL);
+    semctl(sem, 0, IPC_RMID);
+    fclose(logptr);
+    free(wtaArray);
+    //  msgctl(msgq_id,IPC_RMID,NULL); 
+    exit(0);
 }
 union Semun {
     int              val;
@@ -92,8 +98,6 @@ int initiateSem(){
 
 }
 
-int sem;
-FILE* logptr;
 
 int main(int argc, char * argv[])
 {   
@@ -180,7 +184,8 @@ void initiate_shared_memory(int shmid){
 void save_state(){
     Pdown(sem);
     tracker.curr_process.stopTime = getClk();
-    tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr); 
+    tracker.curr_process.remain -= (tracker.quantum  - *tracker.shmaddr);
+    usefulTime += (tracker.quantum  - *tracker.shmaddr);
     if(tracker.curr_process.remain > 0){
         // sleep(5); 
         kill(tracker.curr_process.pid,SIGSTOP);  
@@ -219,6 +224,8 @@ void save_state(){
 
         if(finishedProcessesNumber == n){
             FILE* fptr = fopen("scheduler.perf","w");
+            // printf("useful time: %d\n", usefulTime);
+            float utilization = 100.0*usefulTime/getClk();
             float avgWTA = sumWTA / n;
             float avgWaiting = (float)sumWaiting / n;
             float sumOfDifferenceSquared = 0;
@@ -227,11 +234,12 @@ void save_state(){
             }
             float stdWTA = sqrt(sumOfDifferenceSquared/n);
 
-            fprintf(fptr, "Avg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", avgWTA, avgWaiting, stdWTA);
-            printf("Avg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", avgWTA, avgWaiting, stdWTA);
+            fprintf(fptr, "CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization, avgWTA, avgWaiting, stdWTA);
+            printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
 
             fclose(fptr);
-            fclose(logptr);
+
+            cleanup();
         }
         
 

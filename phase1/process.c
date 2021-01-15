@@ -58,7 +58,7 @@ void con(){
 }
 int main(int agrc, char * argv[])
 {   
-    signal(SIGINT, cleanup);
+    // signal(SIGINT, cleanup);
     // signal(SIGCONT,con); 
     initClk();
     // printf("remain = %s, started at time %d ***********************\n",argv[1],getClk());
@@ -105,7 +105,7 @@ int main(int agrc, char * argv[])
         }
        
     }
-    // printf("process %d terminated\n",getpid());
+    printf("process %d terminated\n",getpid());
 
     shmdt(shmaddr);
     destroyClk(false); 

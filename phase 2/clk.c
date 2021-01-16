@@ -12,6 +12,7 @@ int shmid;
 /* Clear the resources before exit */
 void cleanup(int signum)
 {
+    shmdt(shmaddr); 
     shmctl(shmid, IPC_RMID, NULL);
     printf("Clock terminating!\n");
     exit(0);

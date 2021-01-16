@@ -1,5 +1,6 @@
 #include "headers.h"
 #include "struct.h"
+#include "memory.h"
 
 int RR_QUANTUM = 2; // RR quantum time 
 Dstruct* readyQueue; // ready queue 
@@ -107,23 +108,6 @@ int initiateSem(){
     return m; 
 }
 
-// allocate process in memory
-pair allocate(struct Process p){
-    pair pair1; 
-
-    if (rand()%3 == 2)
-    {
-        pair1.end = 0; 
-    }
-    pair1.end = 1; 
-    return pair1; 
-}
-// deallocagteg process from memory
-bool deallocate(struct Process p){
-    //TODO call deallocation
-   
-    return true; 
-}
 // add process to queue of waiting process that needs to be allocated
 void addToMemAllocatingQueue(struct Process p){
     enqueue(waitingQueue,p); 
@@ -159,6 +143,7 @@ int main(int argc, char * argv[])
     // create data structure based on selected algorithm 
     readyQueue =  CreateStruct(selAlgo);
     waitingQueue = CreateStruct(SMF); 
+    InitializeMemory(); 
 
     // get message queue resource
     key_t key_id;
@@ -206,6 +191,7 @@ int main(int argc, char * argv[])
                 message.p.state = READY;
                 message.p.isAllocated = false; 
                 // add it to ready queue
+              
                 enqueue(readyQueue,message.p); 
         }
         }while(rec_val!= -1 && !message.isLast); // exit when process is last (there're no more processes arrived at same time )
@@ -215,6 +201,7 @@ int main(int argc, char * argv[])
         if(selAlgo==SRTN && getcount(readyQueue)> 0 &&
         front(readyQueue).remain < *tracker.shmaddr ){
             //send signal to save info of current running 
+            printf("isnert process queue");
             raise(SIGUSR1);
         }
         //if tracker has no running process fork new porcess
@@ -229,10 +216,11 @@ int main(int argc, char * argv[])
                 pair mem; 
                 mem =  allocateProcess(tracker.curr_process); 
                 if(mem.end != 0){
-                    printf("At time %d Allocated  %d bytes from process %d \n",getClk()
-                    ,tracker.curr_process.memsize,tracker.curr_process.id); // process in ready queue is allocated 
-                    tracker.curr_process.isAllocated = true; 
                     tracker.curr_process.mem = mem; 
+                    printf("At time %d allocated %d bytes from process %d from %d to %d\n",getClk()
+                    ,tracker.curr_process.memsize,tracker.curr_process.id
+                    ,tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
+                    tracker.curr_process.isAllocated = true; 
                 }
                 else{
                     continue; 
@@ -329,29 +317,36 @@ void save_state(){
             printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
             
             fclose(fptr);
-            printf("At time %d freed %d bytes from process %d\n",getClk()
-            ,tracker.curr_process.memsize,tracker.curr_process.id); 
-            deallocate(tracker.curr_process); 
+            printf("At time %d freed %d bytes from process %d from %d to %d\n",getClk()
+            ,tracker.curr_process.memsize,tracker.curr_process.id,tracker.curr_process.mem.start,
+                tracker.curr_process.mem.end); 
+            deallocate(tracker.curr_process.mem); 
             // terminate all 
             destroyClk(true);
         }
-        printf("At time %d freed %d bytes from process %d\n",getClk()
-        ,tracker.curr_process.memsize,tracker.curr_process.id); 
-        deallocate(tracker.curr_process); 
+        printf("At time %d freed %d bytes from process %d from %d to %d\n",getClk()
+        ,tracker.curr_process.memsize,tracker.curr_process.id,
+        tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
+        deallocate(tracker.curr_process.mem); 
         if(getcount(waitingQueue) > 0 ){
             //front is allocated remove front 
+            // printf("waiting queue is has %d processe\n",getcount(waitingQueue));
             pair mem; 
             mem =  allocateProcess(frontOfMemAllocQueue()); 
-            if(mem.end != 0){
-                printf("At time %d allocated %d bytes from process %d \n",getClk()
-                ,tracker.curr_process.memsize,tracker.curr_process.id); 
+            while(mem.end != 0){
                 tracker.curr_process =  dequeueOfMemAllocQueue(); 
-                tracker.curr_process.isAllocated = true; 
                 tracker.curr_process.mem = mem; 
-                enqueue(readyQueue, tracker.curr_process); 
+                printf("At time %d allocated %d bytes from process %d from %d to %d\n",getClk()
+                ,tracker.curr_process.memsize,tracker.curr_process.id
+                ,tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
+                tracker.curr_process.isAllocated = true; 
+                enqueue(readyQueue, tracker.curr_process);
+                if(getcount(waitingQueue)> 0){
+                    mem =  allocateProcess(frontOfMemAllocQueue()); 
+                }else 
+                    break; 
             }
         } 
-        
     }
     tracker.isRunning = false; 
     // free shared memory
@@ -362,7 +357,7 @@ void save_state(){
 // return pair of memory allocated
 pair allocateProcess(struct Process p ){
     // allocate process --> return 0 if not allocated
-    pair pair1  = allocate(p); 
+    pair pair1  = allocate(p.memsize); 
     // if couldn't allocate 
     if(pair1.end == 0){
         // add process to waiting queue

@@ -144,14 +144,14 @@ int main(int argc, char *argv[])
     // handle interrupt signal 
     signal(SIGINT, clearResources);
 
+        // get message queue
+    msgq_id = createMsgChannel(); 
+
     // 1. Read the input files.
     readProcesses(&P_N); 
    
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     char * selAlgo = readAlgoNum();
-
-    // get message queue
-    msgq_id = createMsgChannel(); 
     
     // 3. Initiate and create the scheduler and clock processes.
     int clk_pid, clk_stat_loc;

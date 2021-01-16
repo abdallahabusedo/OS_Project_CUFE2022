@@ -1,6 +1,7 @@
 #include "headers.h"
 #include "struct.h"
 
+
 int RR_QUANTUM = 2; // RR quantum time 
 Dstruct* queue; // ready queue 
 char selAlgo; //selected algorithm 

@@ -23,6 +23,7 @@ typedef short bool;
 #define HPF 1 
 #define SRTN 2
 #define RR 3
+#define SMF 4
 #define G_MSG_TYPE 7
 #define G_MSG_KEY 77
 #define P_SHM_TYPE 8
@@ -44,6 +45,10 @@ int getClk()
 {
     return *shmaddr;
 }
+typedef struct pair{
+    int start;
+    int end;
+}pair;
 
 // process data structure 
 struct Process{
@@ -57,7 +62,9 @@ struct Process{
     int wait;
     int stopTime;
     int pid; 
-    int memsize; 
+    int memsize;
+    pair mem; 
+    bool isAllocated;  
 }; 
 
 // message buff structure 

@@ -28,7 +28,15 @@ void heapify_bottom_top(Heap *h,int index){
     
     struct Process temp;
     int parent_node = (index-1)/2;
-    if(h->algorithm == HPF){
+    if(h->algorithm == SMF){
+        if(h->arr[parent_node].memsize > h->arr[index].memsize){
+            temp = h->arr[parent_node];
+            h->arr[parent_node] = h->arr[index];
+            h->arr[index] = temp;
+            heapify_bottom_top(h,parent_node);
+        }
+    } 
+    else if (h->algorithm == HPF){
         if(h->arr[parent_node].priority > h->arr[index].priority){
             temp = h->arr[parent_node];
             h->arr[parent_node] = h->arr[index];
@@ -55,8 +63,15 @@ void heapify_top_bottom(Heap *h, int parent_node){
         left = -1;
     if(right >= h->count || right <0)
         right = -1;
-
-    if(h->algorithm == HPF) {
+    if(h->algorithm == SMF){
+        if(left != -1 && h->arr[left].memsize < h->arr[parent_node].memsize)
+            min=left;
+        else
+            min =parent_node;
+        if(right != -1 && h->arr[right].memsize < h->arr[min].memsize)
+            min = right;
+    }
+    else if (h->algorithm == HPF) {
         if(left != -1 && h->arr[left].priority < h->arr[parent_node].priority)
             min=left;
         else

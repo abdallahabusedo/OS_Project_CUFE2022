@@ -47,13 +47,12 @@ void readProcesses(int * count){
     while(getline(&line,&buf_size,file) > 0){
         if(line[0]=='#') continue;
         processes[i] = (struct Process *) malloc(sizeof(struct Process));
-        char *id = strtok(line, "\t");
-        char *arrive = strtok(NULL, "\t");
-        char *runtime = strtok(NULL, "\t");
-        char *priority = strtok(NULL, "\t");
-        char *memsize = strtok(NULL, "\t");
-        // printf("%s%s%s%s%s",id,arrive,runtime,priority,memsize); 
-        if(id == NULL || arrive == NULL || runtime == NULL || priority == NULL || memsize != NULL){
+        char *id = strtok(line, "   ");
+        char *arrive = strtok(NULL, "   ");
+        char *runtime = strtok(NULL, "  ");
+        char *priority = strtok(NULL,"  ");
+        char *memsize = strtok(NULL, "  ");
+        if(id == NULL || arrive == NULL || runtime == NULL || priority == NULL || memsize == NULL){
             printf("\ninput file format is not correct \n\n");
             exit(-1); 
         }
@@ -62,7 +61,7 @@ void readProcesses(int * count){
         processes[i]->runtime = atoi(runtime); 
         processes[i]->priority = atoi(priority);
         processes[i]->remain = processes[i]->runtime; 
-        // processes[i]->memsize = atoi(memsize);
+        processes[i]->memsize = atoi(memsize);
         // printf("processes memory size = %d \n\n", processes[i]->memsize);
         i++;
         // loop through the string to extract all other tokens

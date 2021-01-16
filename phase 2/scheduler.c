@@ -2,7 +2,8 @@
 #include "struct.h"
 
 int RR_QUANTUM = 2; // RR quantum time 
-Dstruct* queue; // ready queue 
+Dstruct* readyQueue; // ready queue 
+Dstruct* waitingQueue; // allocation waiting queue 
 char selAlgo; //selected algorithm 
 
 
@@ -16,12 +17,12 @@ int usefulTime = 0; // summation of time processes was being running
 void forkProcess();
 void initiate_shared_memory(int shmid);
 void save_state();
-
+pair allocateProcess(struct Process p ); 
 // isert process in ready queue
 void insert(struct Process p){
     // struct Process *pp = (struct Process *) malloc(sizeof(struct Process )); 
     // *pp = p ; 
-    enqueue(queue,p);
+    enqueue(readyQueue,p);
 }
 
 // struct that holds info about running process
@@ -106,7 +107,35 @@ int initiateSem(){
     return m; 
 }
 
+// allocate process in memory
+pair allocate(struct Process p){
+    pair pair1; 
 
+    if (rand()%3 == 2)
+    {
+        pair1.end = 0; 
+    }
+    pair1.end = 1; 
+    return pair1; 
+}
+// deallocagteg process from memory
+bool deallocate(struct Process p){
+    //TODO call deallocation
+   
+    return true; 
+}
+// add process to queue of waiting process that needs to be allocated
+void addToMemAllocatingQueue(struct Process p){
+    enqueue(waitingQueue,p); 
+}
+// get front of Memory waiting queue without dequeue
+struct Process frontOfMemAllocQueue(){ 
+    return front(waitingQueue); 
+}
+// deqeue from Memory waiting queue
+struct Process dequeueOfMemAllocQueue(){
+    return dequeue(waitingQueue); 
+}
 int main(int argc, char * argv[])
 {   
 
@@ -128,7 +157,8 @@ int main(int argc, char * argv[])
     wtaArray = (float *) malloc(n * sizeof(float));
 
     // create data structure based on selected algorithm 
-    queue =  CreateStruct(selAlgo);
+    readyQueue =  CreateStruct(selAlgo);
+    waitingQueue = CreateStruct(SMF); 
 
     // get message queue resource
     key_t key_id;
@@ -173,20 +203,41 @@ int main(int argc, char * argv[])
             rec_val = msgrcv(msgq_id, &message, sizeof(message.p)+sizeof(bool), G_MSG_TYPE, IPC_NOWAIT);
             if (rec_val != -1){
                 //set process stae to ready 
-                message.p.state = READY; 
-                enqueue(queue,message.p);
+                message.p.state = READY;
+                message.p.isAllocated = false; 
+                // add it to ready queue
+                enqueue(readyQueue,message.p); 
         }
         }while(rec_val!= -1 && !message.isLast); // exit when process is last (there're no more processes arrived at same time )
         
         // if selected algorithm is SRTN and there's a process 
         //with less remain time than the running one
-        if(selAlgo==SRTN && getcount(queue)> 0 &&
-        front(queue).remain < *tracker.shmaddr ){
+        if(selAlgo==SRTN && getcount(readyQueue)> 0 &&
+        front(readyQueue).remain < *tracker.shmaddr ){
             //send signal to save info of current running 
             raise(SIGUSR1);
         }
         //if tracker has no running process fork new porcess
-        if(!tracker.isRunning && getcount(queue)/*count of proccesses*/ > 0){
+        if(!tracker.isRunning && getcount(readyQueue)/*count of proccesses*/ > 0){
+            // get process to fork 
+            tracker.curr_process = dequeue(readyQueue);
+            
+            // if process not allocated yet (not forked yet)
+            if(!tracker.curr_process.isAllocated)
+            { 
+                // if no space for this process to be allocated
+                pair mem; 
+                mem =  allocateProcess(tracker.curr_process); 
+                if(mem.end != 0){
+                    printf("At time %d Allocated  %d bytes from process %d \n",getClk()
+                    ,tracker.curr_process.memsize,tracker.curr_process.id); // process in ready queue is allocated 
+                    tracker.curr_process.isAllocated = true; 
+                    tracker.curr_process.mem = mem; 
+                }
+                else{
+                    continue; 
+                }
+            }
             forkProcess();
         }
     }
@@ -237,7 +288,7 @@ void save_state(){
             ,getClk(),tracker.curr_process.id,tracker.curr_process.arrive
             ,tracker.curr_process.runtime,tracker.curr_process.remain
             ,tracker.curr_process.wait);
-        enqueue(queue,tracker.curr_process); 
+        enqueue(readyQueue,tracker.curr_process); 
         // insert(tracker.curr_process);  
     }else {
         
@@ -276,22 +327,54 @@ void save_state(){
 
             fprintf(fptr, "CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization, avgWTA, avgWaiting, stdWTA);
             printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
-
+            
             fclose(fptr);
+            printf("At time %d freed %d bytes from process %d\n",getClk()
+            ,tracker.curr_process.memsize,tracker.curr_process.id); 
+            deallocate(tracker.curr_process); 
             // terminate all 
             destroyClk(true);
         }
+        printf("At time %d freed %d bytes from process %d\n",getClk()
+        ,tracker.curr_process.memsize,tracker.curr_process.id); 
+        deallocate(tracker.curr_process); 
+        if(getcount(waitingQueue) > 0 ){
+            //front is allocated remove front 
+            pair mem; 
+            mem =  allocateProcess(frontOfMemAllocQueue()); 
+            if(mem.end != 0){
+                printf("At time %d allocated %d bytes from process %d \n",getClk()
+                ,tracker.curr_process.memsize,tracker.curr_process.id); 
+                tracker.curr_process =  dequeueOfMemAllocQueue(); 
+                tracker.curr_process.isAllocated = true; 
+                tracker.curr_process.mem = mem; 
+                enqueue(readyQueue, tracker.curr_process); 
+            }
+        } 
+        
     }
     tracker.isRunning = false; 
     // free shared memory
     Pup(sem); 
 }
 
+// allocate process in memory 
+// return pair of memory allocated
+pair allocateProcess(struct Process p ){
+    // allocate process --> return 0 if not allocated
+    pair pair1  = allocate(p); 
+    // if couldn't allocate 
+    if(pair1.end == 0){
+        // add process to waiting queue
+        printf("process with id %d is waiting to be allocated \n",p.id); 
+        addToMemAllocatingQueue(p);
+    }
+    return pair1; 
+}
+
+// fork process in tracker
+// or resume if forked before 
 void forkProcess(){
-    
-    // get process 
-    tracker.curr_process = dequeue(queue);
-  
     // get quantum based on algo
     switch (selAlgo)
     {

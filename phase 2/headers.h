@@ -40,7 +40,6 @@ int * shmaddr;                 //
 //===============================
 
 
-
 int getClk()
 {
     return *shmaddr;

@@ -39,6 +39,7 @@ int shmid,msgq_id;
 int sem;
 // pointer to log file 
 FILE* logptr;
+FILE* memfileptr;
 //tracker to current running prcocess
 running tracker; 
 
@@ -47,6 +48,7 @@ void cleanup(){
     shmctl(shmid, IPC_RMID, NULL);
     semctl(sem, 0, IPC_RMID);
     fclose(logptr);
+    fclose(memfileptr); 
     free(wtaArray);
     //  msgctl(msgq_id,IPC_RMID,NULL); 
     printf("scheduler is terminating\n");
@@ -178,8 +180,9 @@ int main(int argc, char * argv[])
 
     // open log file 
     logptr = fopen("scheduler.log","w");
+    memfileptr = fopen("memory.log","w");
     fprintf(logptr, "#At time x process y state arr w total z remain y wait k\n");
-
+    fprintf(memfileptr, "#At time x allocated y bytes for process z from i to j\n");
     // loop until all processes are finished 
     while (true)
     {   
@@ -217,7 +220,12 @@ int main(int argc, char * argv[])
                 mem =  allocateProcess(tracker.curr_process); 
                 if(mem.end != 0){
                     tracker.curr_process.mem = mem; 
-                    printf("At time %d allocated %d bytes from process %d from %d to %d\n",getClk()
+                    
+                    fprintf(memfileptr,"At time %d allocated %d bytes for process %d from %d to %d\n",getClk()
+                    ,tracker.curr_process.memsize,tracker.curr_process.id
+                    ,tracker.curr_process.mem.start,tracker.curr_process.mem.end);
+                    
+                    printf("At time %d allocated %d bytes for process %d from %d to %d\n",getClk()
                     ,tracker.curr_process.memsize,tracker.curr_process.id
                     ,tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
                     tracker.curr_process.isAllocated = true; 
@@ -317,14 +325,25 @@ void save_state(){
             printf("CPU utilization %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", utilization,avgWTA, avgWaiting, stdWTA);
             
             fclose(fptr);
-            printf("At time %d freed %d bytes from process %d from %d to %d\n",getClk()
+            
+            fprintf(memfileptr,"At time %d freed %d bytes for process %d from %d to %d\n",getClk()
+            ,tracker.curr_process.memsize,tracker.curr_process.id,tracker.curr_process.mem.start,
+                tracker.curr_process.mem.end);
+
+            printf("At time %d freed %d bytes for process %d from %d to %d\n",getClk()
             ,tracker.curr_process.memsize,tracker.curr_process.id,tracker.curr_process.mem.start,
                 tracker.curr_process.mem.end); 
-            deallocate(tracker.curr_process.mem); 
+            deallocate(tracker.curr_process.mem);
+
             // terminate all 
             destroyClk(true);
         }
-        printf("At time %d freed %d bytes from process %d from %d to %d\n",getClk()
+
+        fprintf(memfileptr,"At time %d freed %d bytes for process %d from %d to %d\n",getClk()
+        ,tracker.curr_process.memsize,tracker.curr_process.id,
+        tracker.curr_process.mem.start,tracker.curr_process.mem.end);
+
+        printf("At time %d freed %d bytes for process %d from %d to %d\n",getClk()
         ,tracker.curr_process.memsize,tracker.curr_process.id,
         tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
         deallocate(tracker.curr_process.mem); 
@@ -336,7 +355,12 @@ void save_state(){
             while(mem.end != 0){
                 tracker.curr_process =  dequeueOfMemAllocQueue(); 
                 tracker.curr_process.mem = mem; 
-                printf("At time %d allocated %d bytes from process %d from %d to %d\n",getClk()
+                
+                fprintf(memfileptr, "At time %d allocated %d bytes for process %d from %d to %d\n",getClk()
+                ,tracker.curr_process.memsize,tracker.curr_process.id
+                ,tracker.curr_process.mem.start,tracker.curr_process.mem.end);
+                
+                printf("At time %d allocated %d bytes for process %d from %d to %d\n",getClk()
                 ,tracker.curr_process.memsize,tracker.curr_process.id
                 ,tracker.curr_process.mem.start,tracker.curr_process.mem.end); 
                 tracker.curr_process.isAllocated = true; 

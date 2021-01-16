@@ -10,8 +10,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/file.h>
+#include <signal.h>
 
-
+void handler(int signum);
 struct msgbuf
 {
     long mtype;
@@ -55,20 +56,25 @@ void up(int sem)
         exit(-1);
     }
 }
-
-
+int mqId;
+int m;
+int bufferId, bufferDataId;
+union Semun semun;
+key_t sem_key_id;
 int main() {
-    union Semun semun;
-    key_t sem_key_id;
+
+    //creating semaphore
     sem_key_id = ftok("sem_key", 3);
-    int m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
+    m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
     if (m == -1) {
         perror("Error in create sem");
         exit(-1);
     }
+    signal (SIGINT, handler);
     
+    //creating a shared memory for data
+    //and another one for info about data
     key_t buffer_key_id, buffer_data_key_id;
-    int bufferId, bufferDataId;
     buffer_key_id = ftok("buffer_memory_key", 1);
     buffer_data_key_id = ftok("buffer_data_key", 2);
     
@@ -86,6 +92,7 @@ int main() {
     
     if(bufferDataId == -1){
         if (EEXIST == errno) {
+            //if the shared memory exists we read it
             bufferDataId = shmget(buffer_data_key_id, 4 * sizeof(int), IPC_CREAT | 0666);
             bufferData = shmat(bufferDataId, (void *)0, 0);
             if (bufferData == (int *)-1)
@@ -109,10 +116,10 @@ int main() {
             exit(-1);
         }
 
-        bufferData[0] = bufferSize;
-        bufferData[1] = 0;
-        bufferData[2] = 0;
-        bufferData[3] = 0;
+        bufferData[0] = bufferSize;  //buffer size
+        bufferData[1] = 0;           //number of items
+        bufferData[2] = 0;           //address to add
+        bufferData[3] = 0;           //address to remove
     
         semun.val = 1; /* initial value of the semaphore, Binary semaphore */
         if (semctl(m, 0, SETVAL, semun) == -1) {
@@ -131,7 +138,7 @@ int main() {
 
     key_t message_key_id;
     message_key_id = ftok("message_queue_key", 4);
-    int mqId = msgget(message_key_id, 0666 | IPC_CREAT);
+    mqId = msgget(message_key_id, 0666 | IPC_CREAT);
     if (mqId == -1) {
         perror("Error in create");
         exit(-1);
@@ -143,9 +150,12 @@ int main() {
         // to empty message buffer
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, IPC_NOWAIT);
         
-        if (bufferData[1] > bufferSize) exit(1);	/* overflow */
-        if(bufferData[1] == bufferSize) {
+        if (bufferData[1] > bufferSize) /* overflow */
+            exit(1);	
+
+        if(bufferData[1] == bufferSize) { //full
             up(m);
+            //waiting for messege from consumer
             rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 10, !IPC_NOWAIT);
             if (rec_val == -1)
                 perror("Error in receive");
@@ -157,7 +167,8 @@ int main() {
 
         bufferData[2] = (bufferData[2]+1) % bufferSize;
         bufferData[1]++;
-        if(bufferData[1] == 1){
+        if(bufferData[1] == 1){  
+            //awake consumer
             message.mtype = 20;
             send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
             if (send_val == -1)
@@ -165,6 +176,14 @@ int main() {
         }
         up(m);
     }
-
-
+    
 }
+
+void handler(int signum)
+{
+    msgctl(mqId, IPC_RMID, (struct msqid_ds *)0);
+    shmctl(bufferId, IPC_RMID, (struct shmid_ds *)0);
+    shmctl(bufferDataId, IPC_RMID, (struct shmid_ds *)0);
+    semctl(m, 0, IPC_RMID);
+    kill(getpid(), SIGKILL);
+}/**/

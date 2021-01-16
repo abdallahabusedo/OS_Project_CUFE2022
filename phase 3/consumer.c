@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
+void handler(int signum);
 
 struct msgbuf
 {
@@ -56,19 +58,26 @@ void up(int sem)
 }
 
 
-
+int mqId;
+int m;
+int bufferId, bufferDataId;
+union Semun semun;
+key_t sem_key_id;
 int main() {
-    union Semun semun;
-    key_t sem_key_id;
+
+    //creating semaphore
     sem_key_id = ftok("sem_key", 3);
-    int m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
+    m = semget(sem_key_id, 1, 0666 | IPC_CREAT);
     if (m == -1) {
         perror("Error in create sem");
         exit(-1);
     }
+    signal (SIGINT, handler);
     
+    //creating a shared memory for data
+    //and another one for info about data
     key_t buffer_key_id, buffer_data_key_id;
-    int bufferId, bufferDataId, consumer;
+    int consumer;
     buffer_key_id = ftok("buffer_memory_key", 1);
     buffer_data_key_id = ftok("buffer_data_key", 2);
     
@@ -85,6 +94,7 @@ int main() {
     int *bufferData;
 
     if(bufferDataId == -1){
+        //if there is no buffer
         shmctl(bufferDataId, IPC_RMID, (struct shmid_ds *)0);
         printf("No buffer available\n");
         exit(-1);
@@ -110,21 +120,24 @@ int main() {
 
     key_t message_key_id;
     message_key_id = ftok("message_queue_key", 4);
-    int mqId = msgget(message_key_id, 0666 | IPC_CREAT);
+    mqId = msgget(message_key_id, 0666 | IPC_CREAT);
     if (mqId == -1) {
         perror("Error in create");
         exit(-1);
     }
     struct msgbuf message;
     int rec_val, send_val;
+
     while(1){  
         down(m);
         // to empty message buffer
         rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, IPC_NOWAIT);
 
-        if (bufferData[3] < 0) exit(1);	/* overflow */
-        if(bufferData[1] == 0) {
+        if (bufferData[3] < 0) /* overflow */
+            exit(1);	
+        if(bufferData[1] == 0) { //empty
             up(m);
+            //waiting for messege from producer
             rec_val = msgrcv(mqId, &message, sizeof(message.mtext), 20, !IPC_NOWAIT);
             if (rec_val == -1)
                 perror("Error in receive");
@@ -138,6 +151,7 @@ int main() {
         bufferData[3] = (bufferData[3]+1) % bufferSize;
         bufferData[1]--;
         if(bufferData[1] == bufferSize-1){
+            //awake producer
             message.mtype = 10;
             send_val = msgsnd(mqId, &message, sizeof(message.mtext), !IPC_NOWAIT);
             if (send_val == -1)
@@ -146,3 +160,11 @@ int main() {
         up(m);
     }
 }
+void handler(int signum)
+{
+    msgctl(mqId, IPC_RMID, (struct msqid_ds *)0);
+    shmctl(bufferId, IPC_RMID, (struct shmid_ds *)0);
+    shmctl(bufferDataId, IPC_RMID, (struct shmid_ds *)0);
+    semctl(m, 0, IPC_RMID);
+    kill(getpid(), SIGKILL);
+}/**/
